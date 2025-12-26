@@ -1,6 +1,39 @@
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/index.js";
 
+function isRetryableError(error: unknown): boolean {
+  if (!error) return false;
+
+  const status = (error as any)?.status ?? (error as any)?.response?.status;
+  if (typeof status === "number" && [408, 409, 429, 500, 502, 503, 504].includes(status)) {
+    return true;
+  }
+
+  const code = (error as any)?.code;
+  const retryableCodes = new Set([
+    "ETIMEDOUT",
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "EAI_AGAIN",
+    "ENOTFOUND",
+    "EPIPE",
+    "ECONNABORTED",
+    "UND_ERR_CONNECT_TIMEOUT",
+    "UND_ERR_SOCKET",
+    "UND_ERR_HEADERS_TIMEOUT",
+  ]);
+  if (typeof code === "string" && retryableCodes.has(code)) {
+    return true;
+  }
+
+  const message = String((error as any)?.message || "");
+  return /timeout|network|ECONN|ENETUNREACH|EAI_AGAIN/i.test(message);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function openaiChatCompletion({
   apiKey,
   baseUrl,
@@ -30,24 +63,47 @@ export async function openaiChatCompletion({
     timeout: timeoutMs,
   });
 
-  const resp = await client.chat.completions.create(
-    {
-      model,
-      messages,
-      temperature,
-      ...(typeof maxTokens === "number" ? { max_tokens: maxTokens } : {}),
-    },
-    { timeout: timeoutMs }
-  );
+  const maxAttempts = 3;
 
-  const text = resp?.choices?.[0]?.message?.content;
-  if (typeof text !== "string") {
-    throw new Error("OpenAI response missing text.");
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const resp = await client.chat.completions.create(
+        {
+          model,
+          messages,
+          temperature,
+          ...(typeof maxTokens === "number" ? { max_tokens: maxTokens } : {}),
+        },
+        { timeout: timeoutMs }
+      );
+
+      const text = resp?.choices?.[0]?.message?.content;
+      if (typeof text !== "string") {
+        throw new Error("OpenAI response missing text.");
+      }
+
+      return {
+        text,
+        usage: (resp as any)?.usage,
+        raw: resp,
+      };
+    } catch (error: unknown) {
+      const retryable = isRetryableError(error);
+      const isLastAttempt = attempt >= maxAttempts;
+      const delayMs = Math.min(1_000 * attempt, 5_000);
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[openaiChatCompletion] attempt ${attempt} failed${
+          retryable && !isLastAttempt ? ", retrying" : ""
+        }: ${String((error as any)?.message || error)}`
+      );
+
+      if (!retryable || isLastAttempt) {
+        throw error;
+      }
+
+      await sleep(delayMs);
+    }
   }
-
-  return {
-    text,
-    usage: (resp as any)?.usage,
-    raw: resp,
-  };
+  throw new Error("OpenAI chat completion failed after retries.");
 }

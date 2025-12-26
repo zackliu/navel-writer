@@ -62,7 +62,7 @@ export async function loadConfig({ engineRoot }: { engineRoot: string }): Promis
   const configPath = path.join(engineRoot, "config.json");
   const fileConfig = (await readJsonIfExists(configPath)) || {};
 
-  const novelRoot = process.env.NOVEL_ROOT || fileConfig.novelRoot || path.resolve(engineRoot, "..");
+  const novelRoot = process.env.NOVEL_ROOT || fileConfig.novelRoot || path.resolve(engineRoot, "navel-output");
 
   return {
     host: process.env.HOST || fileConfig.host || "127.0.0.1",

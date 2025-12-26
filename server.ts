@@ -1,3 +1,4 @@
+import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +12,7 @@ async function main() {
   const engineRoot = path.resolve(__dirname, "..");
 
   const config = await loadConfig({ engineRoot });
+  await fs.mkdir(config.novelRoot, { recursive: true });
   const router = createRouter({ config, engineRoot });
 
   const server = http.createServer((req, res) => {
@@ -24,6 +26,7 @@ async function main() {
           details: String((error as any)?.stack || error),
         })
       );
+      console.warn(error);
     });
   });
 
