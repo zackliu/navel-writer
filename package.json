@@ -1,0 +1,23 @@
+{
+  "name": "novel-engine",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Novel writing workflow engine (setup generation + chapter development) with auditable prompts and ledgers.",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prestart": "npm run build",
+    "start": "node dist/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "openai": "^6.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "typescript": "^5.9.3"
+  }
+}

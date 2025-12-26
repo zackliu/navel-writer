@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Novel Engine</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-title">Novel Engine</div>
+          <div class="brand-sub">设定生成 · 剧情发展 · 可审计</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">模式</div>
+          <div class="segmented">
+            <button id="modeSetup" class="segmented-btn active">生成设定</button>
+            <button id="modeChapter" class="segmented-btn">发展剧情</button>
+          </div>
+        </div>
+
+        <div id="setupPanel" class="panel">
+          <div class="panel-title">生成设定</div>
+
+          <label class="label">用户需求</label>
+          <textarea id="setupRequirements" class="textarea" rows="7" placeholder="题材、想写的矛盾、主角、想避免的内容……"></textarea>
+
+          <div class="row">
+            <label class="check"><input id="genBible" type="checkbox" checked /> bible.md</label>
+            <label class="check"><input id="genCharacters" type="checkbox" checked /> characters.md</label>
+          </div>
+          <div class="row">
+            <label class="check"><input id="genOutline" type="checkbox" checked /> outline.md</label>
+            <label class="check"><input id="genContinuity" type="checkbox" checked /> continuity_log.md</label>
+          </div>
+
+          <label class="label">写入模式</label>
+          <select id="setupWriteMode" class="select">
+            <option value="draft" selected>draft（写到 drafts/，不覆盖现有文件）</option>
+            <option value="overwrite">overwrite（覆盖写入，并备份到 runs/）</option>
+          </select>
+
+          <label class="label">模型（可选：按文件单独指定）</label>
+          <input id="setupModelDefault" class="input" placeholder="默认模型，如 gpt-4o-mini" />
+          <div class="grid2">
+            <input id="setupModelBible" class="input" placeholder="bible.md 模型" />
+            <input id="setupModelCharacters" class="input" placeholder="characters.md 模型" />
+            <input id="setupModelOutline" class="input" placeholder="outline.md 模型" />
+            <input id="setupModelContinuity" class="input" placeholder="continuity_log.md 模型" />
+          </div>
+
+          <button id="runSetup" class="primary">生成</button>
+        </div>
+
+        <div id="chapterPanel" class="panel hidden">
+          <div class="panel-title">发展剧情</div>
+
+          <label class="label">本章额外要求（可选）</label>
+          <textarea id="chapterGuidance" class="textarea" rows="6" placeholder="想推进/回收的线索、想出现的意象语义、想避免的写法……"></textarea>
+
+          <div class="grid2">
+            <div>
+              <label class="label">章节号（可选）</label>
+              <input id="chapterNumber" class="input" placeholder="留空=自动下一章" />
+            </div>
+            <div>
+              <label class="label">主文件写入模式</label>
+              <select id="mainWriteMode" class="select">
+                <option value="overwrite" selected>overwrite（更新 4 主文件，并备份）</option>
+                <option value="draft">draft（主文件输出到本次 runs/ 下，不覆盖）</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="label">模型（按步骤）</label>
+          <div class="grid2">
+            <input id="modelSummary" class="input" placeholder="summary（可选，如 gpt-4o-mini）" />
+            <input id="modelBrief" class="input" placeholder="brief（可选）" />
+            <input id="modelWrite" class="input" placeholder="write（可选，如 gpt-4o）" />
+            <input id="modelQc" class="input" placeholder="qc（可选）" />
+            <input id="modelUpdate" class="input" placeholder="update（可选）" />
+          </div>
+
+          <button id="runChapter" class="primary">生成本章</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">文件</div>
+          <div class="row">
+            <button id="refreshFiles" class="secondary">刷新</button>
+            <button id="refreshState" class="secondary">状态</button>
+          </div>
+          <div id="fileList" class="file-list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">连接</div>
+          <div id="connInfo" class="muted">加载中…</div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div id="chat" class="chat"></div>
+        <div class="composer">
+          <div class="composer-hint muted">
+            结果会写入文件（可在右侧“文件”里打开查看/编辑）
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <dialog id="editor" class="editor">
+      <form method="dialog" class="editor-shell">
+        <div class="editor-head">
+          <div id="editorPath" class="editor-path"></div>
+          <div class="editor-actions">
+            <button id="saveFile" type="button" class="primary small">保存</button>
+            <button type="submit" class="secondary small">关闭</button>
+          </div>
+        </div>
+        <textarea id="editorContent" class="editor-textarea" spellcheck="false"></textarea>
+      </form>
+    </dialog>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
+
