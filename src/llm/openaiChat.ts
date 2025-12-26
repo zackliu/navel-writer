@@ -41,7 +41,7 @@ export async function openaiChatCompletion({
   messages,
   temperature,
   maxTokens,
-  timeoutMs = 180_000,
+  timeoutMs = 300_000,
 }: {
   apiKey: string;
   baseUrl: string;
@@ -88,17 +88,14 @@ export async function openaiChatCompletion({
         raw: resp,
       };
     } catch (error: unknown) {
-      const retryable = isRetryableError(error);
       const isLastAttempt = attempt >= maxAttempts;
       const delayMs = Math.min(1_000 * attempt, 5_000);
       // eslint-disable-next-line no-console
       console.warn(
-        `[openaiChatCompletion] attempt ${attempt} failed${
-          retryable && !isLastAttempt ? ", retrying" : ""
-        }: ${String((error as any)?.message || error)}`
+        `[openaiChatCompletion] attempt ${attempt} failed: ${String((error as any)?.message || error)}`
       );
 
-      if (!retryable || isLastAttempt) {
+      if (isLastAttempt) {
         throw error;
       }
 
