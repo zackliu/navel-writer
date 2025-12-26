@@ -7,12 +7,12 @@
   },
   "defaults": {
     "models": {
-      "setup": "gpt-4o-mini",
-      "summary": "gpt-4o-mini",
-      "brief": "gpt-4o-mini",
-      "write": "gpt-4o",
-      "qc": "gpt-4o-mini",
-      "update": "gpt-4o-mini"
+      "setup": "gpt-5.1",
+      "summary": "gpt-4.1",
+      "brief": "gpt-4.1",
+      "write": "gpt-4.1",
+      "qc": "gpt-4.1",
+      "update": "gpt-4.1"
     }
   }
 }
