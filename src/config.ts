@@ -85,7 +85,7 @@ export async function loadConfig({ engineRoot }: { engineRoot: string }): Promis
         update: fileConfig?.defaults?.models?.update || "gpt-4o-mini",
       },
       temperature: {
-        setup: fileConfig?.defaults?.temperature?.setup ?? 0.6,
+        setup: fileConfig?.defaults?.temperature?.setup ?? 0.9,
         summary: fileConfig?.defaults?.temperature?.summary ?? 0.2,
         brief: fileConfig?.defaults?.temperature?.brief ?? 0.4,
         write: fileConfig?.defaults?.temperature?.write ?? 0.85,
