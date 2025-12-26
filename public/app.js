@@ -267,7 +267,7 @@
 
   $("runSetup").addEventListener("click", async () => {
     const body = collectSetupBody();
-    addMsg({ tag: "setup", tagClass: "ok", text: `†¬?†<‡"Y‘^?‹¬s${body.files.join(", ") || "(‚¯~Šr†>>„,¦)"}\nwriteMode=${body.writeMode}` });
+    addMsg({ tag: "setup", tagClass: "ok", text: `开始生成：${body.files.join(", ") || "(默认四个)"}\nwriteMode=${body.writeMode}` });
 
     try {
       await apiSsePost("/api/generate-setup", body, (evt) => {
@@ -324,7 +324,7 @@
 
   $("runChapter").addEventListener("click", async () => {
     const body = collectChapterBody();
-    addMsg({ tag: "chapter", tagClass: "ok", text: `†¬?†<†+T„«o‹¬schapterNumber=${body.chapterNumber ?? "(auto)"}\nmainWriteMode=${body.mainWriteMode}` });
+    addMsg({ tag: "chapter", tagClass: "ok", text: `开始写作: chapterNumber=${body.chapterNumber ?? "(auto)"}\nmainWriteMode=${body.mainWriteMode}` });
 
     try {
       await apiSsePost("/api/develop-chapter", body, (evt) => {
