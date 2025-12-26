@@ -11,22 +11,27 @@
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-title">Novel Engine</div>
-          <div class="brand-sub">设定生成 · 剧情发展 · 可审计</div>
+          <div class="brand-sub">小说写作工作流 · 可审计提示与输出</div>
         </div>
 
         <div class="panel">
           <div class="panel-title">模式</div>
           <div class="segmented">
-            <button id="modeSetup" class="segmented-btn active">生成设定</button>
-            <button id="modeChapter" class="segmented-btn">发展剧情</button>
+            <button id="modeSetup" class="segmented-btn active">设定生成</button>
+            <button id="modeChapter" class="segmented-btn">章节开发</button>
           </div>
         </div>
 
         <div id="setupPanel" class="panel">
-          <div class="panel-title">生成设定</div>
+          <div class="panel-title">设定生成</div>
 
-          <label class="label">用户需求</label>
-          <textarea id="setupRequirements" class="textarea" rows="7" placeholder="题材、想写的矛盾、主角、想避免的内容……"></textarea>
+          <label class="label">项目需求 / 设定要求</label>
+          <textarea
+            id="setupRequirements"
+            class="textarea"
+            rows="7"
+            placeholder="描述世界观、风格、角色约束等（中文即可）"
+          ></textarea>
 
           <div class="row">
             <label class="check"><input id="genBible" type="checkbox" checked /> bible.md</label>
@@ -39,11 +44,11 @@
 
           <label class="label">写入模式</label>
           <select id="setupWriteMode" class="select">
-            <option value="draft" selected>draft（写到 drafts/，不覆盖现有文件）</option>
-            <option value="overwrite">overwrite（覆盖写入，并备份到 runs/）</option>
+            <option value="draft" selected>draft（写入 drafts/ 保留历史草稿）</option>
+            <option value="overwrite">overwrite（写入 runs/ 直接覆盖）</option>
           </select>
 
-          <label class="label">模型（可选：按文件单独指定）</label>
+          <label class="label">模型（为空使用默认）</label>
           <input id="setupModelDefault" class="input" placeholder="默认模型，如 gpt-4o-mini" />
           <div class="grid2">
             <input id="setupModelBible" class="input" placeholder="bible.md 模型" />
@@ -52,61 +57,119 @@
             <input id="setupModelContinuity" class="input" placeholder="continuity_log.md 模型" />
           </div>
 
-          <button id="runSetup" class="primary">生成</button>
+          <button id="runSetup" class="primary">生成设定</button>
         </div>
 
         <div id="chapterPanel" class="panel hidden">
-          <div class="panel-title">发展剧情</div>
+          <div class="panel-title">章节开发</div>
 
-          <label class="label">本章额外要求（可选）</label>
-          <textarea id="chapterGuidance" class="textarea" rows="6" placeholder="想推进/回收的线索、想避免的写法……"></textarea>
+          <label class="label">本章写作指导</label>
+          <textarea
+            id="chapterGuidance"
+            class="textarea"
+            rows="6"
+            placeholder="情节走向、语气风格、避坑提醒等"
+          ></textarea>
 
           <div class="grid2">
             <div>
-              <label class="label">章节号（可选）</label>
-              <input id="chapterNumber" class="input" placeholder="留空=自动下一章" />
+              <label class="label">章节号（留空自动选择）</label>
+              <input id="chapterNumber" class="input" placeholder="如 3" />
             </div>
             <div>
-              <label class="label">主文件写入模式</label>
+              <label class="label">正文写入模式</label>
               <select id="mainWriteMode" class="select">
-                <option value="overwrite" selected>overwrite（更新 4 主文件，并备份）</option>
-                <option value="draft">draft（主文件输出到本次 runs/ 下，不覆盖）</option>
+                <option value="overwrite" selected>overwrite（写入 runs/ 覆盖正文）</option>
+                <option value="draft">draft（写入 runs/ 草稿并保留原文）</option>
               </select>
             </div>
           </div>
 
-          <label class="label">模型（按步骤）</label>
+          <label class="label">模型（可选）</label>
           <div class="grid2">
-            <input id="modelSummary" class="input" placeholder="summary（可选，如 gpt-4o-mini）" />
-            <input id="modelBrief" class="input" placeholder="brief（可选）" />
-            <input id="modelWrite" class="input" placeholder="write（可选，如 gpt-4o）" />
-            <input id="modelQc" class="input" placeholder="qc（可选）" />
-            <input id="modelUpdate" class="input" placeholder="update（可选）" />
+            <input id="modelSummary" class="input" placeholder="summary 模型，如 gpt-4o-mini" />
+            <input id="modelBrief" class="input" placeholder="brief 模型" />
+            <input id="modelWrite" class="input" placeholder="write 模型，如 gpt-4o" />
+            <input id="modelQc" class="input" placeholder="qc 模型" />
+            <input id="modelUpdate" class="input" placeholder="update 模型" />
           </div>
 
-          <button id="runChapter" class="primary">生成本章</button>
+          <button id="runChapter" class="primary">生成章节</button>
         </div>
 
         <div class="panel">
           <div class="panel-title">文件</div>
           <div class="row">
-            <button id="refreshFiles" class="secondary">刷新</button>
-            <button id="refreshState" class="secondary">状态</button>
+            <button id="refreshFiles" class="secondary">刷新文件</button>
+            <button id="refreshState" class="secondary">查看状态</button>
           </div>
           <div id="fileList" class="file-list"></div>
         </div>
 
         <div class="panel">
           <div class="panel-title">连接</div>
-          <div id="connInfo" class="muted">加载中…</div>
+          <div id="connInfo" class="muted">尚未连接</div>
         </div>
       </aside>
 
       <main class="main">
-        <div id="chat" class="chat"></div>
-        <div class="composer">
-          <div class="composer-hint muted">
-            结果会写入文件（可在右侧“文件”里打开查看/编辑）
+        <div class="main-tabs">
+          <button id="consoleTab" class="main-tab active">控制台</button>
+          <button id="readerTab" class="main-tab">阅读模式</button>
+        </div>
+
+        <div class="main-content">
+          <div id="consoleView" class="main-view console-view">
+            <div id="chat" class="chat"></div>
+            <div class="composer">
+              <div class="composer-hint muted">
+                运行过程、状态与输出会显示在上方，如有报错请检查日志。
+              </div>
+            </div>
+          </div>
+
+          <div id="readerView" class="main-view reader-view hidden">
+            <div class="reader-toolbar">
+              <div class="reader-line">
+                <div class="reader-group">
+                  <span class="toolbar-label">章节</span>
+                  <select id="chapterSelect" class="select inline"></select>
+                  <button id="prevChapter" class="secondary small">上一章</button>
+                  <button id="nextChapter" class="secondary small">下一章</button>
+                  <button id="refreshChapters" class="secondary small">刷新</button>
+                </div>
+                <div class="reader-group">
+                  <span class="toolbar-label">字体</span>
+                  <select id="readerFont" class="select inline">
+                    <option value="serif">衬线</option>
+                    <option value="sans">无衬线</option>
+                    <option value="classic">经典</option>
+                    <option value="mono">等宽</option>
+                  </select>
+                  <span class="toolbar-label">字号</span>
+                  <input
+                    id="readerFontSize"
+                    class="range"
+                    type="range"
+                    min="14"
+                    max="28"
+                    step="1"
+                    value="18"
+                  />
+                  <span id="readerFontSizeValue" class="reader-font-size muted">18px</span>
+                </div>
+              </div>
+            </div>
+            <div class="reader-surface">
+              <div class="reader-head">
+                <div id="readerTitle" class="reader-title">选择章节开始阅读</div>
+                <div id="readerMeta" class="reader-meta muted"></div>
+              </div>
+              <div class="reader-scroll">
+                <div id="readerStatus" class="reader-status muted">加载章节后会显示在这里。</div>
+                <article id="readerBody" class="reader-body hidden"></article>
+              </div>
+            </div>
           </div>
         </div>
       </main>
@@ -128,4 +191,3 @@
     <script src="/app.js"></script>
   </body>
 </html>
-
