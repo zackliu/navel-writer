@@ -1,7 +1,6 @@
 {
   "host": "127.0.0.1",
   "port": 8787,
-  "novelRoot": "C:/Users/chenyl/小说",
   "openai": {
     "apiKey": "YOUR_OPENAI_API_KEY",
     "baseUrl": "https://api.openai.com/v1"
