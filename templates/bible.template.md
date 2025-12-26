@@ -57,7 +57,7 @@
 
 ---
 
-## 6) 三条不可违反的约束（写作护栏）
+## 6) 不可违反的约束（写作护栏）
 
 1. {{HARD_CONSTRAINT_1}}
 2. {{HARD_CONSTRAINT_2}}
@@ -65,31 +65,7 @@
 
 ---
 
-## 7) 核心意象清单（≤ 3）与语义计划
-
-> 意象不是装饰，是记账：每次出现必须语义变化，最终必须回收。
-
-### 意象 A：{{MOTIF_A}}
-- 早期语义：{{MOTIF_A_EARLY}}
-- 中期语义：{{MOTIF_A_MID}}
-- 后期语义：{{MOTIF_A_LATE}}
-- 回收方式：{{MOTIF_A_PAYOFF}}
-
-### 意象 B：{{MOTIF_B}}
-- 早期语义：{{MOTIF_B_EARLY}}
-- 中期语义：{{MOTIF_B_MID}}
-- 后期语义：{{MOTIF_B_LATE}}
-- 回收方式：{{MOTIF_B_PAYOFF}}
-
-### 意象 C（可选）：{{MOTIF_C}}
-- 早期语义：{{MOTIF_C_EARLY}}
-- 中期语义：{{MOTIF_C_MID}}
-- 后期语义：{{MOTIF_C_LATE}}
-- 回收方式：{{MOTIF_C_PAYOFF}}
-
----
-
-## 8) 术语表/名词表（可选）
+## 7) 术语表/名词表（可选）
 
 - {{TERM_1}}
 - {{TERM_2}}
