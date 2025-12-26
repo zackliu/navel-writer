@@ -62,7 +62,7 @@ export async function generateSetup({
   requirements,
   files,
   modelsByFile,
-  writeMode = "draft",
+  writeMode = "overwrite",
   temperature,
   log,
 }: {

@@ -204,7 +204,7 @@
     for (const p of data.files) {
       const el = document.createElement("div");
       el.className = "file-item";
-      el.innerHTML = `<div class="file-path"></div><div class="file-meta">‘%"†¬?</div>`;
+      el.innerHTML = `<div class="file-path"></div><div class="file-meta">打开</div>`;
       el.querySelector(".file-path").textContent = p;
       el.addEventListener("click", () => openFile(p));
       list.appendChild(el);
@@ -225,7 +225,7 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: p, content: editorContent.value }),
     });
-    addMsg({ tag: "file", tagClass: "ok", text: `†úý„¨?†-~‹¬s${p}` });
+    addMsg({ tag: "file", tagClass: "ok", text: `刷新${p}` });
     await refreshFiles();
   });
 
