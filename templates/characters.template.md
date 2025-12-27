@@ -9,6 +9,8 @@
 
 {{CHAR_1_NAME}}（{{CHAR_1_ROLE}}）
 
+年龄，性别，身高，样貌
+
 长期底盘（Big Five/HEXACO 分数 + 日常表现/他人误读/自我合理化）：{{CHAR_1_TRAIT_BASELINE}}
 
 关键驱动与威胁反应（奖赏目标/最怕失去 + 冲上去/刹车/僵住 + 典型触发线索）：{{CHAR_1_DRIVE_THREAT_RESPONSE}}
@@ -43,6 +45,8 @@
 ---
 
 {{CHAR_2_NAME}}（{{CHAR_2_ROLE}}）
+
+年龄，性别，身高，样貌
 
 长期底盘（Big Five/HEXACO 分数 + 日常表现/他人误读/自我合理化）：{{CHAR_2_TRAIT_BASELINE}}
 

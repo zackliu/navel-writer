@@ -4,6 +4,7 @@
 - `bible.md` / `characters.md` / `outline.md` / `continuity_log.md`
 - 旧章节摘要（如有）
 - 最近 3 章全文（如有）
+- 目标章节号（必须对应 `outline.md` 中同编号的章节；若编号对不上或缺失，请直接说明，不要自拟）
 - 用户本章额外要求（可选）
 
 核心目标：
