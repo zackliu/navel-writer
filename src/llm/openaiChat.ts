@@ -77,9 +77,25 @@ export async function openaiChatCompletion({
         { timeout: timeoutMs }
       );
 
-      const text = resp?.choices?.[0]?.message?.content;
+      const choice = resp?.choices?.[0];
+      const text = choice?.message?.content;
       if (typeof text !== "string") {
         throw new Error("OpenAI response missing text.");
+      }
+
+      const finishReason = (choice as any)?.finish_reason;
+      console.info(`Finish reason: ${finishReason}, token: ${(resp as any)?.usage?.completion_tokens}`);
+      if (finishReason === "length") {
+        const usage = (resp as any)?.usage;
+        const promptTokens = usage?.prompt_tokens;
+        const completionTokens = usage?.completion_tokens;
+        const usageMsg =
+          typeof promptTokens === "number" && typeof completionTokens === "number"
+            ? ` Token usage: prompt=${promptTokens}, completion=${completionTokens}.`
+            : "";
+        throw new Error(
+          `OpenAI response truncated (finish_reason=length). Increase max tokens or reduce prompt size.${usageMsg}`
+        );
       }
 
       return {

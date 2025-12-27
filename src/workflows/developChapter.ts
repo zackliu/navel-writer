@@ -12,7 +12,6 @@ import {
   readSummary,
   writeChapter,
   writeChapterBrief,
-  writeChapterQc,
   writeSummary,
 } from "../novel/chapters.js";
 import { extractJsonFromMarkedBlock } from "../utils/structuredOutput.js";
@@ -42,7 +41,6 @@ function pickModels({ config, models }: { config: AppConfig; models?: any }) {
     summary: models?.summary || config.defaults.models.summary,
     brief: models?.brief || config.defaults.models.brief,
     write: models?.write || config.defaults.models.write,
-    qc: models?.qc || config.defaults.models.qc,
     update: models?.update || config.defaults.models.update,
   };
 }
@@ -53,7 +51,6 @@ function pickTemps({ config, temperatures }: { config: AppConfig; temperatures?:
     summary: typeof t.summary === "number" ? t.summary : config.defaults.temperature.summary,
     brief: typeof t.brief === "number" ? t.brief : config.defaults.temperature.brief,
     write: typeof t.write === "number" ? t.write : config.defaults.temperature.write,
-    qc: typeof t.qc === "number" ? t.qc : config.defaults.temperature.qc,
     update: typeof t.update === "number" ? t.update : config.defaults.temperature.update,
   };
 }
@@ -285,60 +282,19 @@ export async function developChapter({
   });
   log?.({ event: "result", data: { file: path.basename(chapterPath), path: chapterPath } });
 
-  const qcPrompt = await loadTaskPrompt({
-    engineRoot,
-    relativePath: "tasks/chapter/qc_and_rewrite.md",
-  });
-  const qcUserContent = [
-    qcPrompt,
-    wrapFile(path.basename(chapterPath), chapterDraft),
-    wrapFile(path.basename(briefPath), briefMarkdown),
-    wrapFile("bible.md", coreFiles["bible.md"]),
-    wrapFile("characters.md", coreFiles["characters.md"]),
-    wrapFile("outline.md", coreFiles["outline.md"]),
-    wrapFile("continuity_log.md", coreFiles["continuity_log.md"]),
-  ].join("");
-
-  log?.({ event: "status", data: { step: "qc", chapter: nextChapter, model: models.qc } });
-  await appendStep({
-    runDir: run.dir,
-    step: { kind: "llm", step: "qc", model: models.qc, temperature: temps.qc },
-  });
-
-  const qcResult = await openaiChatCompletion({
-    apiKey: config.openai.apiKey,
-    baseUrl: config.openai.baseUrl,
-    model: models.qc,
-    messages: [
-      { role: "system", content: axis },
-      { role: "user", content: qcUserContent },
-    ],
-    temperature: temps.qc,
-  });
-
-  const qcJson = extractJsonFromMarkedBlock(qcResult.text);
-  if (!qcJson || typeof qcJson !== "object") {
-    throw new Error("QC step did not return marked JSON.");
-  }
-
-  const revisedChapterMarkdown =
-    String((qcJson as any).revisedChapterMarkdown || "").replace(/\r\n/g, "\n").trim() + "\n";
-  const qcMarkdown =
-    String((qcJson as any).qcMarkdown || "").replace(/\r\n/g, "\n").trim() + "\n";
-
-  await writeChapter({ novelRoot: config.novelRoot, n: nextChapter, content: revisedChapterMarkdown });
-  const qcPath = await writeChapterQc({ novelRoot: config.novelRoot, n: nextChapter, content: qcMarkdown });
-  log?.({ event: "result", data: { file: path.basename(qcPath), path: qcPath } });
-
   const updatePrompt = await loadTaskPrompt({
     engineRoot,
     relativePath: "tasks/chapter/update_main_files.md",
   });
+  const continuityPrompt = await loadTaskPrompt({
+    engineRoot,
+    relativePath: "tasks/setup/generate_continuity_log.md",
+  });
   const updateUserContent = [
     updatePrompt,
-    wrapFile(`chapters/chapter_${String(nextChapter).padStart(2, "0")}.md`, revisedChapterMarkdown),
+    wrapFile("tasks/setup/generate_continuity_log.md", continuityPrompt),
+    wrapFile(`chapters/chapter_${String(nextChapter).padStart(2, "0")}.md`, chapterDraft),
     wrapFile(`chapters/chapter_${String(nextChapter).padStart(2, "0")}_brief.md`, briefMarkdown),
-    wrapFile(`chapters/chapter_${String(nextChapter).padStart(2, "0")}_qc.md`, qcMarkdown),
     wrapFile("bible.md", coreFiles["bible.md"]),
     wrapFile("characters.md", coreFiles["characters.md"]),
     wrapFile("outline.md", coreFiles["outline.md"]),
@@ -368,7 +324,8 @@ export async function developChapter({
   }
 
   const mainUpdates: Record<string, unknown> = {};
-  for (const fileName of CORE_FILES) {
+  const targetCoreFiles: CoreFileName[] = ["continuity_log.md"];
+  for (const fileName of targetCoreFiles) {
     const spec = (updateJson as any).files[fileName];
     if (!spec || typeof spec.changed !== "boolean") continue;
 
@@ -398,7 +355,6 @@ export async function developChapter({
     chapterNumber: nextChapter,
     chapterBrief: briefPath,
     chapter: chapterPath,
-    chapterQc: qcPath,
     summary: summaryPath,
     mainUpdates,
   };

@@ -40,7 +40,7 @@ npm start
 
 ### 2.1 `novelRoot`：小说工程根目录（最重要）
 
-引擎启动后，会把“小说工程根目录”当成所有读写的根（默认是 `novel-engine/navel-output`）。
+引擎启动后，会把“小说工程根目录”当成所有读写的根（默认是 `novel-engine/novel-output`）。
 
 - 4 个主文件默认在 `novelRoot/` 下：`bible.md`、`characters.md`、`outline.md`、`continuity_log.md`
 - 章节文件在 `novelRoot/chapters/` 下
@@ -51,7 +51,7 @@ npm start
 
 1. 环境变量：`NOVEL_ROOT`
 2. `novel-engine/config.json` 的 `novelRoot`
-3. 默认：`path.resolve(engineRoot, "navel-output")`
+3. 默认：`path.resolve(engineRoot, "novel-output")`
 
 对应代码：`novel-engine/src/config.ts`
 

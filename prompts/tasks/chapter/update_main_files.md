@@ -1,29 +1,28 @@
-# 任务：写完一章后更新 4 个主文件
+# 更新 `continuity_log.md`（只改这一份）
+
+目标：用最新章节内容刷新 `continuity_log.md`。不要修改 `bible.md`、`characters.md`、`outline.md`。
 
 你将收到：
+- `tasks/setup/generate_continuity_log.md`（严格遵循其中的格式与规则）
+- 最新稿件 `chapter_XX.md` 和 `chapter_XX_brief.md`
+- 现有的 `continuity_log.md`、`bible.md`、`characters.md`、`outline.md`
 
-- 修改后的 `chapter_XX.md`
-- `chapter_XX_brief.md` / `chapter_XX_qc.md`
-- 现有 `bible.md` / `characters.md` / `outline.md` / `continuity_log.md`
+规则：
+- 只在 `files` 中返回 `continuity_log.md`。
+- 如果无需更新，设置 `changed=false` 并说明原因。
+- 如果 `changed=true`，必须返回完整的 `continuity_log.md` Markdown（末尾保留换行），保持原有结构/标题，在此基础上准确吸收本章信息。
+- 理由要简短、清晰。
 
-目标：把“新增不可逆后果、线索状态、人物状态变化、禁改事实新增项”回写进账本与骨架里；只改动必要部分，并为每个文件写清楚变更原因。
-
-输出必须是严格 JSON（用 `<<<JSON ... JSON>>>` 包裹），格式：
+用 `<<<JSON ... JSON>>>` 包裹输出，格式示例：
 
 {
   "files": {
-    "bible.md": { "changed": false, "reason": "..." },
-    "characters.md": { "changed": true, "reason": "...", "content": "完整新文件内容" },
-    "outline.md": { "changed": true, "reason": "...", "content": "完整新文件内容" },
-    "continuity_log.md": { "changed": true, "reason": "...", "content": "完整新文件内容" }
+    "continuity_log.md": {
+      "changed": true,
+      "reason": "...",
+      "content": "完整的 continuity_log.md（仅当 changed=true 时提供）"
+    }
   }
 }
 
-规则：
-
-- 如果 `changed=false`，不要输出 `content` 字段。
-- 如果 `changed=true`，`content` 必须是完整文件内容（Markdown），并且尽量保持未变化部分原文不动。
-- `continuity_log.md` 必须至少更新：禁改事实/线索状态/人物状态 三者之一（通常都要）。
-- 对于任何 `changed=true` 的文件：必须在文件顶部的“变更说明/版本记录”里追加一条与本章相关的变更记录，写清楚你为什么改、改了什么（简短、可审计）。
-
-不要输出其它内容。
+不要在 `files` 中包含其它文件。
