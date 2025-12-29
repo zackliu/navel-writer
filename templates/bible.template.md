@@ -1,6 +1,5 @@
 # 小说项目 Bible（项目真相）
 
-
 ## 0) 元信息（非剧情，但约束）
 
 1. 题材：{{GENRE}}
@@ -50,10 +49,11 @@
 ### 3.2 资源稀缺点（推进靠争夺，不靠解释）
 - {{SCARCE_RESOURCE_1}}
 - {{SCARCE_RESOURCE_2}}
+...
 
 ### 3.3 信息与证据的流向（谁能知道什么，知道了能做什么）
 {{INFO_EVIDENCE_FLOW}}
-（写清：信息/证据一旦出现，会被谁抢、拿来做什么交易/威胁/洗白。）
+（写清：信息/证据会以什么“实体形态”出现；一旦出现，会被谁抢、拿来做什么交易/威胁/洗白/阻断/嫁祸。）
 
 ---
 
@@ -61,49 +61,52 @@
 
 ### 4.1 长线（终局线：发动机的最终结算）
 - L：{{LONG_LINE}}
-- 终局必须兑现的代价：{{ENDGAME_COST}}
+- 终局必须兑现的代价（主代价类型必须写清）：{{ENDGAME_COST}}
 
-### 4.2 中线（2–3 条：多章汇聚爆点）
+### 4.2 中线（3-5 条：多章汇聚爆点）
 - M1：{{MIDLINE_1}}
 - M2：{{MIDLINE_2}}
-- M3（可选）：{{MIDLINE_3}}
+- M3：{{MIDLINE_3}}
+- M3：{{MIDLINE_4}}
 
-> 每条中线必须说明：它最终会在什么“爆点事件”中结算（不是解释真相，而是结构变形）。
-- M1 爆点：{{MIDLINE_1_DETONATION}}
-- M2 爆点：{{MIDLINE_2_DETONATION}}
-- M3 爆点：{{MIDLINE_3_DETONATION}}
+> 每条中线必须说明：它最终会在什么“爆点事件”中结算（不是解释真相，而是结构变形/结构性锁死）。
+- M1 爆点（结构性锁死是什么）：{{MIDLINE_1_DETONATION}}
+- M2 爆点（结构性锁死是什么）：{{MIDLINE_2_DETONATION}}
+- M3 爆点（结构性锁死是什么）：{{MIDLINE_3_DETONATION}}
+- M4 爆点（结构性锁死是什么）：{{MIDLINE_4_DETONATION}}
 
 ### 4.3 短线压力池（每章从这里抽 1–2 个让局面更紧）
-> 短线必须是“可追责/可利用/可计时/可传导”的东西，不是心情。
+> 短线必须是“可追责/可利用/可计时/可传导”的实体压力，不是心情；每条必须写清触发条件（计时器/窗口/阈值）。
 - S-Pressure Pool：
-  - {{SHORT_PRESSURE_1}}（计时器/触发：{{SP1_TIMER}}）
-  - {{SHORT_PRESSURE_2}}（计时器/触发：{{SP2_TIMER}}）
-  - {{SHORT_PRESSURE_3}}（计时器/触发：{{SP3_TIMER}}）
+  - {{SHORT_PRESSURE_1}}（代价类型：{{SP1_COST_TYPE}}；计时器/触发：{{SP1_TIMER}}；可利用方式：{{SP1_USE}}）
+  - {{SHORT_PRESSURE_2}}（代价类型：{{SP2_COST_TYPE}}；计时器/触发：{{SP2_TIMER}}；可利用方式：{{SP2_USE}}）
+  - {{SHORT_PRESSURE_3}}（代价类型：{{SP3_COST_TYPE}}；计时器/触发：{{SP3_TIMER}}；可利用方式：{{SP3_USE}}）
 
 ---
 
 ## 5) 升级台阶（节奏保证：从轻到重，但不慢）
 
-> 目的：防止前期“平缓铺垫”。写清每一阶的“可验证变化”。
+> 目的：防止前期“平缓铺垫”。写清每一阶的“可验证变化”，并注明这一阶主要在支付哪类代价。
 
-- 阶 1（早期）：{{TIER_1_SIGNATURE}}
+- 阶 1（早期）：{{TIER_1_SIGNATURE}}（主代价：{{T1_COST_TYPE}}）
   - 可验证变化：{{T1_PROOF}}
-- 阶 2（中期）：{{TIER_2_SIGNATURE}}
+- 阶 2（中期）：{{TIER_2_SIGNATURE}}（主代价：{{T2_COST_TYPE}}）
   - 可验证变化：{{T2_PROOF}}
-- 阶 3（后期）：{{TIER_3_SIGNATURE}}
+- 阶 3（后期）：{{TIER_3_SIGNATURE}}（主代价：{{T3_COST_TYPE}}）
   - 可验证变化：{{T3_PROOF}}
-- 阶 4（高潮）：{{TIER_4_SIGNATURE}}
+- 阶 4（高潮）：{{TIER_4_SIGNATURE}}（主代价：{{T4_COST_TYPE}}）
   - 可验证变化：{{T4_PROOF}}
 
 ---
 
 ## 6) 世界规则（能约束剧情）
 
-> 规则写法：能被角色利用，也能惩罚角色；并且能升级（与“升级台阶”一致）。
+> 规则写法：能被角色利用，也能惩罚角色；并且能升级（与“升级台阶”一致）。规则也必须能进入证据/记录/可利用物的体系。
 
-1. **规则 1**：{{RULE_1}}
-2. **规则 2**：{{RULE_2}}
-3. **规则 3**：{{RULE_3}}
+1. **规则 1**：{{RULE_1}}（可利用方式：{{RULE_1_USE}}；惩罚方式：{{RULE_1_PUNISH}}；升级点：{{RULE_1_UPGRADE}}）
+2. **规则 2**：{{RULE_2}}（可利用方式：{{RULE_2_USE}}；惩罚方式：{{RULE_2_PUNISH}}；升级点：{{RULE_2_UPGRADE}}）
+3. **规则 3**：{{RULE_3}}（可利用方式：{{RULE_3_USE}}；惩罚方式：{{RULE_3_PUNISH}}；升级点：{{RULE_3_UPGRADE}}）
+...
 
 ---
 
@@ -124,11 +127,11 @@
 
 ## 9) 核心角色在发动机中的位置（避免“只写主角”）
 
-| 角色 | 在发动机里扮演的功能（不是人设） | 他握着的筹码 | 他最可能做的背叛 | 他会被哪条线逼到墙角 |
-|---|---|---|---|---|
-| {{PROTAGONIST}} | {{P_FUNCTION}} | {{P_LEVERAGE}} | {{P_BETRAYAL}} | {{P_FORCED_BY_LINE}} |
-| {{KEY_CHAR_2}} | {{C2_FUNCTION}} | {{C2_LEVERAGE}} | {{C2_BETRAYAL}} | {{C2_FORCED_BY_LINE}} |
-| {{KEY_CHAR_3}} | {{C3_FUNCTION}} | {{C3_LEVERAGE}} | {{C3_BETRAYAL}} | {{C3_FORCED_BY_LINE}} |
+| 角色 | 在发动机里扮演的功能（不是人设） | 他握着的筹码（实体/可用） | 他最可能做的背叛（可触发条件） | 他会被哪条线逼到墙角（L/M/S） | 他常用的软关门方式（策略/防御） |
+|---|---|---|---|---|---|
+| {{PROTAGONIST}} | {{P_FUNCTION}} | {{P_LEVERAGE}} | {{P_BETRAYAL}} | {{P_FORCED_BY_LINE}} | {{P_SOFT_DOOR_STYLE}} |
+| {{KEY_CHAR_2}} | {{C2_FUNCTION}} | {{C2_LEVERAGE}} | {{C2_BETRAYAL}} | {{C2_FORCED_BY_LINE}} | {{C2_SOFT_DOOR_STYLE}} |
+| {{KEY_CHAR_3}} | {{C3_FUNCTION}} | {{C3_LEVERAGE}} | {{C3_BETRAYAL}} | {{C3_FORCED_BY_LINE}} | {{C3_SOFT_DOOR_STYLE}} |
 
 ---
 

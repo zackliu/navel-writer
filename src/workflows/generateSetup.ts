@@ -10,7 +10,7 @@ import { extractJsonFromMarkedBlock } from "../utils/structuredOutput.js";
 
 type Logger = ((evt: { event: string; data: unknown }) => void) | null | undefined;
 
-const GENERATION_ORDER: CoreFileName[] = ["bible.md", "characters.md", "continuity_log.md", "outline.md"];
+const GENERATION_ORDER: CoreFileName[] = ["bible.md", "characters.md", "outline.md", "continuity_log.md"];
 
 function normalizeFiles(files: unknown): CoreFileName[] {
   const requested: string[] =
@@ -91,8 +91,8 @@ export async function generateSetup({
   const existingByFile: Record<CoreFileName, string | null> = {
     "bible.md": null,
     "characters.md": null,
-    "continuity_log.md": null,
     "outline.md": null,
+    "continuity_log.md": null,
   };
   for (const fileName of GENERATION_ORDER) {
     existingByFile[fileName] = await readUtf8IfExists(
@@ -103,14 +103,14 @@ export async function generateSetup({
   const generated: Record<CoreFileName, string> = {
     "bible.md": "",
     "characters.md": "",
-    "continuity_log.md": "",
     "outline.md": "",
+    "continuity_log.md": "",
   };
   const targetPaths: Record<CoreFileName, string> = {
     "bible.md": "",
     "characters.md": "",
-    "continuity_log.md": "",
     "outline.md": "",
+    "continuity_log.md": "",
   };
 
   for (const fileName of orderedFiles) {

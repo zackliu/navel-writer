@@ -282,74 +282,74 @@ export async function developChapter({
   });
   log?.({ event: "result", data: { file: path.basename(chapterPath), path: chapterPath } });
 
-  const updatePrompt = await loadTaskPrompt({
-    engineRoot,
-    relativePath: "tasks/chapter/update_main_files.md",
-  });
-  const continuityPrompt = await loadTaskPrompt({
-    engineRoot,
-    relativePath: "tasks/setup/generate_continuity_log.md",
-  });
-  const updateUserContent = [
-    updatePrompt,
-    wrapFile("tasks/setup/generate_continuity_log.md", continuityPrompt),
-    wrapFile(`chapters/chapter_${String(nextChapter).padStart(2, "0")}.md`, chapterDraft),
-    wrapFile(`chapters/chapter_${String(nextChapter).padStart(2, "0")}_brief.md`, briefMarkdown),
-    wrapFile("bible.md", coreFiles["bible.md"]),
-    wrapFile("characters.md", coreFiles["characters.md"]),
-    wrapFile("outline.md", coreFiles["outline.md"]),
-    wrapFile("continuity_log.md", coreFiles["continuity_log.md"]),
-  ].join("");
+  // const updatePrompt = await loadTaskPrompt({
+  //   engineRoot,
+  //   relativePath: "tasks/chapter/update_main_files.md",
+  // });
+  // const continuityPrompt = await loadTaskPrompt({
+  //   engineRoot,
+  //   relativePath: "tasks/setup/generate_continuity_log.md",
+  // });
+  // const updateUserContent = [
+  //   updatePrompt,
+  //   wrapFile("tasks/setup/generate_continuity_log.md", continuityPrompt),
+  //   wrapFile(`chapters/chapter_${String(nextChapter).padStart(2, "0")}.md`, chapterDraft),
+  //   wrapFile(`chapters/chapter_${String(nextChapter).padStart(2, "0")}_brief.md`, briefMarkdown),
+  //   wrapFile("bible.md", coreFiles["bible.md"]),
+  //   wrapFile("characters.md", coreFiles["characters.md"]),
+  //   wrapFile("outline.md", coreFiles["outline.md"]),
+  //   wrapFile("continuity_log.md", coreFiles["continuity_log.md"]),
+  // ].join("");
 
-  log?.({ event: "status", data: { step: "update", chapter: nextChapter, model: models.update } });
-  await appendStep({
-    runDir: run.dir,
-    step: { kind: "llm", step: "update", model: models.update, temperature: temps.update },
-  });
+  // log?.({ event: "status", data: { step: "update", chapter: nextChapter, model: models.update } });
+  // await appendStep({
+  //   runDir: run.dir,
+  //   step: { kind: "llm", step: "update", model: models.update, temperature: temps.update },
+  // });
 
-  const updateResult = await openaiChatCompletion({
-    apiKey: config.openai.apiKey,
-    baseUrl: config.openai.baseUrl,
-    model: models.update,
-    messages: [
-      { role: "system", content: axis },
-      { role: "user", content: updateUserContent },
-    ],
-    temperature: temps.update,
-  });
+  // const updateResult = await openaiChatCompletion({
+  //   apiKey: config.openai.apiKey,
+  //   baseUrl: config.openai.baseUrl,
+  //   model: models.update,
+  //   messages: [
+  //     { role: "system", content: axis },
+  //     { role: "user", content: updateUserContent },
+  //   ],
+  //   temperature: temps.update,
+  // });
 
-  const updateJson = extractJsonFromMarkedBlock(updateResult.text);
-  if (!updateJson || typeof updateJson !== "object" || typeof updateJson.files !== "object") {
-    throw new Error("Update step did not return expected JSON.");
-  }
+  // const updateJson = extractJsonFromMarkedBlock(updateResult.text);
+  // if (!updateJson || typeof updateJson !== "object" || typeof updateJson.files !== "object") {
+  //   throw new Error("Update step did not return expected JSON.");
+  // }
 
   const mainUpdates: Record<string, unknown> = {};
-  const targetCoreFiles: CoreFileName[] = ["continuity_log.md"];
-  for (const fileName of targetCoreFiles) {
-    const spec = (updateJson as any).files[fileName];
-    if (!spec || typeof spec.changed !== "boolean") continue;
+  // const targetCoreFiles: CoreFileName[] = ["continuity_log.md"];
+  // for (const fileName of targetCoreFiles) {
+  //   const spec = (updateJson as any).files[fileName];
+  //   if (!spec || typeof spec.changed !== "boolean") continue;
 
-    if (!spec.changed) {
-      mainUpdates[fileName] = { changed: false, reason: String(spec.reason || "") };
-      continue;
-    }
+  //   if (!spec.changed) {
+  //     mainUpdates[fileName] = { changed: false, reason: String(spec.reason || "") };
+  //     continue;
+  //   }
 
-    const content = String(spec.content || "").replace(/\r\n/g, "\n").trim() + "\n";
-    if (!content.trim()) throw new Error(`Update for ${fileName} is empty.`);
+  //   const content = String(spec.content || "").replace(/\r\n/g, "\n").trim() + "\n";
+  //   if (!content.trim()) throw new Error(`Update for ${fileName} is empty.`);
 
-    const target =
-      mainWriteMode === "overwrite"
-        ? novelPath({ novelRoot: config.novelRoot, relativePath: fileName })
-        : path.join(run.dir, "draft_main_files", fileName);
+  //   const target =
+  //     mainWriteMode === "overwrite"
+  //       ? novelPath({ novelRoot: config.novelRoot, relativePath: fileName })
+  //       : path.join(run.dir, "draft_main_files", fileName);
 
-    if (mainWriteMode === "overwrite") {
-      await copyIfExists({ from: target, to: path.join(run.dir, "backup", fileName) });
-    }
-    await writeUtf8({ filePath: target, content });
+  //   if (mainWriteMode === "overwrite") {
+  //     await copyIfExists({ from: target, to: path.join(run.dir, "backup", fileName) });
+  //   }
+  //   await writeUtf8({ filePath: target, content });
 
-    mainUpdates[fileName] = { changed: true, reason: String(spec.reason || ""), path: target };
-    log?.({ event: "result", data: { file: fileName, path: target } });
-  }
+  //   mainUpdates[fileName] = { changed: true, reason: String(spec.reason || ""), path: target };
+  //   log?.({ event: "result", data: { file: fileName, path: target } });
+  // }
 
   const outputs = {
     chapterNumber: nextChapter,
