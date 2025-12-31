@@ -11,7 +11,7 @@
       <aside class="sidebar">
         <div class="brand">
           <div class="brand-title">Novel Engine</div>
-          <div class="brand-sub">小说写作工作流 · 可审计提示与输出</div>
+          <div class="brand-sub">小说写作工作流</div>
         </div>
 
         <div class="panel">
@@ -25,36 +25,81 @@
         <div id="setupPanel" class="panel">
           <div class="panel-title">设定生成</div>
 
-          <label class="label">项目需求 / 设定要求</label>
-          <textarea
-            id="setupRequirements"
-            class="textarea"
-            rows="7"
-            placeholder="描述世界观、风格、角色约束等（中文即可）"
-          ></textarea>
-
-          <div class="row">
-            <label class="check"><input id="genBible" type="checkbox" checked /> bible.md</label>
-            <label class="check"><input id="genCharacters" type="checkbox" checked /> characters.md</label>
-          </div>
-          <div class="row">
-            <label class="check"><input id="genOutline" type="checkbox" checked /> outline.md</label>
-            <label class="check"><input id="genContinuity" type="checkbox" checked /> continuity_log.md</label>
+          <label class="label">模式</label>
+          <div class="segmented">
+            <button id="setupModeFull" class="segmented-btn active">全量生成</button>
+            <button id="setupModeIncremental" class="segmented-btn">增量更新</button>
           </div>
 
-          <label class="label">写入模式</label>
-          <select id="setupWriteMode" class="select">
-            <option value="draft">draft（写入 drafts/ 保留历史草稿）</option>
-            <option value="overwrite" selected>overwrite（写入 runs/ 直接覆盖）</option>
-          </select>
+          <div id="setupFullForm">
+            <label class="label">项目需求 / 设定要求</label>
+            <textarea
+              id="setupRequirements"
+              class="textarea"
+              rows="7"
+              placeholder="描述世界观、风格、角色约束等（中文即可）"
+            ></textarea>
 
-          <label class="label">模型（为空使用默认）</label>
-          <input id="setupModelDefault" class="input" placeholder="默认模型，如 gpt-4o-mini" />
-          <div class="grid2">
-            <input id="setupModelBible" class="input" placeholder="bible.md 模型" />
-            <input id="setupModelCharacters" class="input" placeholder="characters.md 模型" />
-            <input id="setupModelOutline" class="input" placeholder="outline.md 模型" />
-            <input id="setupModelContinuity" class="input" placeholder="continuity_log.md 模型" />
+            <div class="row">
+              <label class="check"><input id="genBible" type="checkbox" checked /> bible.md</label>
+              <label class="check"><input id="genCharacters" type="checkbox" checked /> characters.md</label>
+            </div>
+            <div class="row">
+              <label class="check"><input id="genOutline" type="checkbox" checked /> outline.md</label>
+              <label class="check"><input id="genContinuity" type="checkbox" checked /> continuity_log.md</label>
+            </div>
+
+            <label class="label">写入模式</label>
+            <select id="setupWriteMode" class="select">
+              <option value="draft">draft（写入 drafts/ 保留历史草稿）</option>
+              <option value="overwrite" selected>overwrite（写入 runs/ 直接覆盖）</option>
+            </select>
+
+            <label class="label">模型（为空使用默认）</label>
+            <input id="setupModelDefault" class="input" placeholder="默认模型，如 gpt-4o-mini" />
+            <div class="grid2">
+              <input id="setupModelBible" class="input" placeholder="bible.md 模型" />
+              <input id="setupModelCharacters" class="input" placeholder="characters.md 模型" />
+              <input id="setupModelOutline" class="input" placeholder="outline.md 模型" />
+              <input id="setupModelContinuity" class="input" placeholder="continuity_log.md 模型" />
+            </div>
+          </div>
+
+          <div id="setupIncrementalForm" class="hidden">
+            <label class="label">增量更新指示</label>
+            <textarea
+              id="incrementalInstructions"
+              class="textarea"
+              rows="6"
+              placeholder="输入需要修改或补充的要点"
+            ></textarea>
+
+            <label class="label">选择要更新的 setup 文件</label>
+            <select id="setupTargetFile" class="select">
+              <option value="bible.md">bible.md</option>
+              <option value="characters.md">characters.md</option>
+              <option value="outline.md">outline.md</option>
+              <option value="continuity_log.md">continuity_log.md</option>
+            </select>
+
+            <label class="label">放入 context 的文件</label>
+            <div class="row">
+              <label class="check"><input id="ctxBible" type="checkbox" checked /> bible.md</label>
+              <label class="check"><input id="ctxCharacters" type="checkbox" checked /> characters.md</label>
+            </div>
+            <div class="row">
+              <label class="check"><input id="ctxOutline" type="checkbox" checked /> outline.md</label>
+              <label class="check"><input id="ctxContinuity" type="checkbox" checked /> continuity_log.md</label>
+            </div>
+
+            <label class="label">写入模式</label>
+            <select id="setupUpdateWriteMode" class="select">
+              <option value="draft" selected>draft（写入 drafts/ 保留历史草稿）</option>
+              <option value="overwrite">overwrite（写入 runs/ 直接覆盖）</option>
+            </select>
+
+            <label class="label">模型（留空用默认）</label>
+            <input id="setupUpdateModel" class="input" placeholder="默认沿用 setup 模型" />
           </div>
 
           <button id="runSetup" class="primary">生成设定</button>

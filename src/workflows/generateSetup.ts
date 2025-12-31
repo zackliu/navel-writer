@@ -10,6 +10,8 @@ import { extractJsonFromMarkedBlock } from "../utils/structuredOutput.js";
 
 type Logger = ((evt: { event: string; data: unknown }) => void) | null | undefined;
 
+type SetupMode = "full" | "incremental";
+
 const GENERATION_ORDER: CoreFileName[] = ["bible.md", "characters.md", "outline.md", "continuity_log.md"];
 
 function normalizeFiles(files: unknown): CoreFileName[] {
@@ -56,6 +58,152 @@ function wrapFile(name: string, content: string | null | undefined): string {
   return `\n\n---\n\n## FILE: ${name}\n${content}`;
 }
 
+function wrapSection(title: string, content: string | null | undefined): string {
+  if (content == null) return "";
+  return `\n\n---\n\n## ${title}\n${content}`;
+}
+
+function normalizeMode(mode: unknown): SetupMode {
+  return mode === "incremental" ? "incremental" : "full";
+}
+
+function normalizeTargetFile(target: unknown): CoreFileName {
+  const cleaned = String(target || "").trim();
+  if ((CORE_FILES as readonly string[]).includes(cleaned)) {
+    return cleaned as CoreFileName;
+  }
+  throw new Error("Invalid or missing targetFile for incremental setup.");
+}
+
+function normalizeContextFiles(contextFiles: unknown, target: CoreFileName): CoreFileName[] {
+  const list = Array.isArray(contextFiles) ? contextFiles.map(String) : [];
+  const filtered = list.filter((f): f is CoreFileName => (CORE_FILES as readonly string[]).includes(f));
+  const set = new Set<CoreFileName>(filtered);
+  set.add(target);
+  return Array.from(set);
+}
+
+async function runIncrementalSetup({
+  config,
+  engineRoot,
+  axis,
+  runId,
+  runDir,
+  targetFile,
+  contextFiles,
+  instructions,
+  modelsByFile,
+  writeMode,
+  temperature,
+  log,
+}: {
+  config: AppConfig;
+  engineRoot: string;
+  axis: string;
+  runId: string;
+  runDir: string;
+  targetFile: CoreFileName;
+  contextFiles: CoreFileName[];
+  instructions: string;
+  modelsByFile?: Partial<Record<CoreFileName, string>>;
+  writeMode: "draft" | "overwrite";
+  temperature?: number;
+  log?: Logger;
+}): Promise<Record<string, unknown>> {
+  const model =
+    (modelsByFile && modelsByFile[targetFile]) ||
+    config.defaults.models.update ||
+    config.defaults.models.setup;
+  const effectiveTemp =
+    typeof temperature === "number"
+      ? temperature
+      : config.defaults.temperature.update ?? config.defaults.temperature.setup;
+
+  const existingByFile: Record<CoreFileName, string | null> = {
+    "bible.md": null,
+    "characters.md": null,
+    "outline.md": null,
+    "continuity_log.md": null,
+  };
+  for (const fileName of contextFiles) {
+    existingByFile[fileName] = await readUtf8IfExists(
+      novelPath({ novelRoot: config.novelRoot, relativePath: fileName })
+    );
+  }
+
+  const targetExisting = existingByFile[targetFile];
+  if (targetExisting == null) {
+    throw new Error(`Target file not found: ${targetFile}. Please generate it first.`);
+  }
+
+  const updatePrompt = await loadTaskPrompt({
+    engineRoot,
+    relativePath: "tasks/setup/update_core_file.md",
+  });
+
+  const contextBlocks = contextFiles
+    .map((name) => {
+      const label = name === targetFile ? `${name} (current)` : name;
+      const content = existingByFile[name];
+      if (content == null) return wrapSection(`FILE: ${label}`, "(missing)");
+      return `\n\n---\n\n## FILE: ${label}\n${content}`;
+    })
+    .join("");
+
+  const userContent = [
+    updatePrompt,
+    wrapSection("Target File", targetFile),
+    wrapSection("Instructions", instructions ? String(instructions) : "(none provided)"),
+    contextBlocks,
+  ].join("");
+
+  log?.({ event: "status", data: { step: "incremental_setup", file: targetFile, model } });
+  await appendStep({
+    runDir,
+    step: { kind: "llm", step: "incremental_setup", file: targetFile, model, temperature: effectiveTemp },
+  });
+
+  const result = await openaiChatCompletion({
+    apiKey: config.openai.apiKey,
+    baseUrl: config.openai.baseUrl,
+    model,
+    messages: [
+      { role: "system", content: axis },
+      { role: "user", content: userContent },
+    ],
+    temperature: effectiveTemp,
+  });
+
+  const markdown = result.text.trim().replace(/\r\n/g, "\n") + "\n";
+
+  const target =
+    writeMode === "overwrite"
+      ? novelPath({ novelRoot: config.novelRoot, relativePath: targetFile })
+      : path.join(draftsDir(config.novelRoot), runId, targetFile);
+
+  if (writeMode === "overwrite") {
+    await copyIfExists({
+      from: target,
+      to: path.join(runDir, "backup", targetFile),
+    });
+  }
+
+  await writeUtf8({ filePath: target, content: markdown });
+
+  log?.({ event: "result", data: { file: targetFile, path: target } });
+
+  return {
+    [targetFile]: {
+      path: target,
+      model,
+      usage: result.usage,
+      wroteMode: writeMode,
+      mode: "incremental",
+      contextFiles,
+    },
+  };
+}
+
 export async function generateSetup({
   config,
   engineRoot,
@@ -63,6 +211,9 @@ export async function generateSetup({
   files,
   modelsByFile,
   writeMode = "overwrite",
+  mode,
+  targetFile,
+  contextFiles,
   temperature,
   log,
 }: {
@@ -71,10 +222,17 @@ export async function generateSetup({
   requirements: string;
   files?: unknown;
   modelsByFile?: Partial<Record<CoreFileName, string>>;
+  mode?: SetupMode;
+  targetFile?: unknown;
+  contextFiles?: unknown;
   writeMode?: "draft" | "overwrite";
   temperature?: number;
   log?: Logger;
 }): Promise<{ runId: string; outputs: Record<string, unknown> }> {
+  const setupMode = normalizeMode(mode);
+  const resolvedWriteMode: "draft" | "overwrite" =
+    setupMode === "incremental" ? (writeMode || "draft") : writeMode || "overwrite";
+
   const requestedFiles = normalizeFiles(files);
   const subset = GENERATION_ORDER.filter((f) => requestedFiles.includes(f));
   const orderedFiles: CoreFileName[] = subset.length ? subset : [...GENERATION_ORDER];
@@ -82,10 +240,39 @@ export async function generateSetup({
   const run = await createRun({
     novelRoot: config.novelRoot,
     type: "setup",
-    input: { requirements, files: requestedFiles, modelsByFile, writeMode },
+    input: {
+      requirements,
+      files: requestedFiles,
+      modelsByFile,
+      writeMode: resolvedWriteMode,
+      mode: setupMode,
+      targetFile,
+      contextFiles,
+    },
   });
 
   const axis = await loadAxisPrompts({ engineRoot });
+
+  if (setupMode === "incremental") {
+    const normalizedTarget = normalizeTargetFile(targetFile);
+    const normalizedContext = normalizeContextFiles(contextFiles, normalizedTarget);
+    const outputs = await runIncrementalSetup({
+      config,
+      engineRoot,
+      axis,
+      runId: run.id,
+      runDir: run.dir,
+      targetFile: normalizedTarget,
+      contextFiles: normalizedContext,
+      instructions: requirements || "",
+      modelsByFile,
+      writeMode: resolvedWriteMode,
+      temperature,
+      log,
+    });
+    await updateOutputs({ runDir: run.dir, outputs });
+    return { runId: run.id, outputs };
+  }
 
   const outputs: Record<string, unknown> = {};
   const existingByFile: Record<CoreFileName, string | null> = {
@@ -171,11 +358,11 @@ export async function generateSetup({
     generated[fileName] = markdown;
 
     const target =
-      writeMode === "overwrite"
+      resolvedWriteMode === "overwrite"
         ? novelPath({ novelRoot: config.novelRoot, relativePath: fileName })
         : path.join(draftsDir(config.novelRoot), run.id, fileName);
 
-    if (writeMode === "overwrite") {
+    if (resolvedWriteMode === "overwrite") {
       await copyIfExists({
         from: target,
         to: path.join(run.dir, "backup", fileName),
@@ -189,7 +376,7 @@ export async function generateSetup({
       path: target,
       model,
       usage: result.usage,
-      wroteMode: writeMode,
+      wroteMode: resolvedWriteMode,
     };
 
     log?.({ event: "result", data: { file: fileName, path: target } });
@@ -256,7 +443,7 @@ export async function generateSetup({
 
     if (changed) {
       const target = targetPaths[fileName] ||
-        (writeMode === "overwrite"
+        (resolvedWriteMode === "overwrite"
           ? novelPath({ novelRoot: config.novelRoot, relativePath: fileName })
           : path.join(draftsDir(config.novelRoot), run.id, fileName));
       await writeUtf8({ filePath: target, content: normalized });

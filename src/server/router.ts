@@ -77,6 +77,9 @@ export function createRouter({ config, engineRoot }: { config: AppConfig; engine
         const stream = isSseRequest(req, urlObj);
         if (stream) startSse(res);
 
+        const requestedMode = body?.mode === "incremental" ? "incremental" : "full";
+        const writeMode = body?.writeMode || (requestedMode === "incremental" ? "draft" : "draft");
+
         const log = stream
           ? (evt: { event?: string; data: unknown }) => sseSend(res, evt)
           : null;
@@ -88,7 +91,10 @@ export function createRouter({ config, engineRoot }: { config: AppConfig; engine
             requirements: body?.requirements || "",
             files: body?.files,
             modelsByFile: body?.models,
-            writeMode: body?.writeMode || "draft",
+            writeMode,
+            mode: requestedMode,
+            targetFile: body?.targetFile,
+            contextFiles: body?.contextFiles,
             temperature: typeof body?.temperature === "number" ? body.temperature : undefined,
             log,
           });

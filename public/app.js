@@ -6,6 +6,18 @@
   const modeChapterBtn = $("modeChapter");
   const setupPanel = $("setupPanel");
   const chapterPanel = $("chapterPanel");
+  const setupModeFullBtn = $("setupModeFull");
+  const setupModeIncrementalBtn = $("setupModeIncremental");
+  const setupFullForm = $("setupFullForm");
+  const setupIncrementalForm = $("setupIncrementalForm");
+  const setupTargetFile = $("setupTargetFile");
+  const setupUpdateWriteMode = $("setupUpdateWriteMode");
+  const setupUpdateModel = $("setupUpdateModel");
+  const incrementalInstructions = $("incrementalInstructions");
+  const ctxBible = $("ctxBible");
+  const ctxCharacters = $("ctxCharacters");
+  const ctxOutline = $("ctxOutline");
+  const ctxContinuity = $("ctxContinuity");
 
   const consoleTab = $("consoleTab");
   const readerTab = $("readerTab");
@@ -36,6 +48,7 @@
     mono: '"JetBrains Mono","Cascadia Code","Menlo","Consolas",monospace',
   };
 
+  let setupMode = "full";
   let mainView = "console";
   let chapters = [];
   let currentChapter = null;
@@ -163,6 +176,43 @@
   modeSetupBtn.addEventListener("click", () => setMode("setup"));
   modeChapterBtn.addEventListener("click", () => setMode("chapter"));
 
+  function syncContextWithTarget() {
+    const target = setupTargetFile?.value;
+    const map = {
+      "bible.md": ctxBible,
+      "characters.md": ctxCharacters,
+      "outline.md": ctxOutline,
+      "continuity_log.md": ctxContinuity,
+    };
+    Object.entries(map).forEach(([file, el]) => {
+      if (!el) return;
+      const isTarget = file === target;
+      el.disabled = isTarget;
+      if (isTarget) el.checked = true;
+    });
+  }
+
+  function setSetupMode(mode) {
+    setupMode = mode === "incremental" ? "incremental" : "full";
+    if (setupMode === "incremental") {
+      setupModeIncrementalBtn?.classList.add("active");
+      setupModeFullBtn?.classList.remove("active");
+      setupIncrementalForm?.classList.remove("hidden");
+      setupFullForm?.classList.add("hidden");
+      if (setupUpdateWriteMode) setupUpdateWriteMode.value = "draft";
+    } else {
+      setupModeFullBtn?.classList.add("active");
+      setupModeIncrementalBtn?.classList.remove("active");
+      setupFullForm?.classList.remove("hidden");
+      setupIncrementalForm?.classList.add("hidden");
+    }
+    syncContextWithTarget();
+  }
+
+  setupModeFullBtn?.addEventListener("click", () => setSetupMode("full"));
+  setupModeIncrementalBtn?.addEventListener("click", () => setSetupMode("incremental"));
+  setupTargetFile?.addEventListener("change", syncContextWithTarget);
+
   function setMainView(view) {
     mainView = view;
     if (view === "console") {
@@ -237,6 +287,32 @@
   }
 
   function collectSetupBody() {
+    if (setupMode === "incremental") {
+      const target = (setupTargetFile?.value || "bible.md").trim();
+      const contextFiles = [];
+      if (ctxBible?.checked) contextFiles.push("bible.md");
+      if (ctxCharacters?.checked) contextFiles.push("characters.md");
+      if (ctxOutline?.checked) contextFiles.push("outline.md");
+      if (ctxContinuity?.checked) contextFiles.push("continuity_log.md");
+      if (!contextFiles.includes(target)) contextFiles.push(target);
+
+      const models = {};
+      const updateModelVal = (setupUpdateModel?.value || "").trim();
+      const defModel = $("setupModelDefault").value.trim();
+      if (updateModelVal) models[target] = updateModelVal;
+      else if (defModel) models[target] = defModel;
+
+      return {
+        mode: "incremental",
+        requirements: incrementalInstructions?.value || "",
+        targetFile: target,
+        contextFiles: Array.from(new Set(contextFiles)),
+        files: [target],
+        models,
+        writeMode: setupUpdateWriteMode?.value || "draft",
+      };
+    }
+
     const reqs = $("setupRequirements").value || "";
     const files = [];
     if ($("genBible").checked) files.push("bible.md");
@@ -258,6 +334,7 @@
     }
 
     return {
+      mode: "full",
       requirements: reqs,
       files,
       models,
@@ -267,7 +344,22 @@
 
   $("runSetup").addEventListener("click", async () => {
     const body = collectSetupBody();
-    addMsg({ tag: "setup", tagClass: "ok", text: `开始生成：${body.files.join(", ") || "(默认四个)"}\nwriteMode=${body.writeMode}` });
+    if (body.mode === "incremental") {
+      addMsg({
+        tag: "setup",
+        tagClass: "ok",
+        text: `增量更新 ${body.targetFile}
+context=${(body.contextFiles || []).join(", ") || "(仅目标)"}
+writeMode=${body.writeMode}`,
+      });
+    } else {
+      addMsg({
+        tag: "setup",
+        tagClass: "ok",
+        text: `启动设定生成：${body.files.join(", ") || "(全部)"}
+writeMode=${body.writeMode}`,
+      });
+    }
 
     try {
       await apiSsePost("/api/generate-setup", body, (evt) => {
@@ -286,7 +378,8 @@
           addMsg({
             tag: "done",
             tagClass: "ok",
-            text: `runId=${evt.data.runId}\n${Object.keys(outputs).length} files`,
+            text: `runId=${evt.data.runId}
+${Object.keys(outputs).length} files`,
             links,
           });
           refreshFiles().catch(() => {});
@@ -583,6 +676,7 @@
   }
 
   // boot
+  setSetupMode("full");
   setMode("setup");
   setMainView("console");
   refreshState().catch(() => {});

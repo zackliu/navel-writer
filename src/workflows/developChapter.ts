@@ -12,12 +12,17 @@ import {
   readSummary,
   writeChapter,
   writeChapterBrief,
+  writeChapterQc,
   writeSummary,
 } from "../novel/chapters.js";
 import { extractJsonFromMarkedBlock } from "../utils/structuredOutput.js";
 import { appendStep, createRun, updateOutputs } from "../runs/runStore.js";
 
 type Logger = ((evt: { event: string; data: unknown }) => void) | null | undefined;
+
+function countCharsNoSpace(text: string): number {
+  return text.replace(/\s+/g, "").length;
+}
 
 function wrapFile(name: string, content: string | null): string {
   return `\n\n=== FILE: ${name} ===\n${content || ""}\n=== END FILE: ${name} ===\n`;
@@ -41,6 +46,7 @@ function pickModels({ config, models }: { config: AppConfig; models?: any }) {
     summary: models?.summary || config.defaults.models.summary,
     brief: models?.brief || config.defaults.models.brief,
     write: models?.write || config.defaults.models.write,
+    qc: models?.qc || config.defaults.models.qc,
     update: models?.update || config.defaults.models.update,
   };
 }
@@ -51,6 +57,7 @@ function pickTemps({ config, temperatures }: { config: AppConfig; temperatures?:
     summary: typeof t.summary === "number" ? t.summary : config.defaults.temperature.summary,
     brief: typeof t.brief === "number" ? t.brief : config.defaults.temperature.brief,
     write: typeof t.write === "number" ? t.write : config.defaults.temperature.write,
+    qc: typeof t.qc === "number" ? t.qc : config.defaults.temperature.qc,
     update: typeof t.update === "number" ? t.update : config.defaults.temperature.update,
   };
 }
@@ -275,12 +282,104 @@ export async function developChapter({
   });
 
   const chapterDraft = chapterDraftResult.text.trim().replace(/\r\n/g, "\n") + "\n";
+  const chapterDraftCharCount = countCharsNoSpace(chapterDraft);
   const chapterPath = await writeChapter({
     novelRoot: config.novelRoot,
     n: nextChapter,
     content: chapterDraft,
   });
   log?.({ event: "result", data: { file: path.basename(chapterPath), path: chapterPath } });
+
+  const qcPrompt = await loadTaskPrompt({
+    engineRoot,
+    relativePath: "tasks/chapter/qc_and_rewrite.md",
+  });
+  const qcUserContent = [
+    qcPrompt,
+    wrapFile(path.basename(briefPath), briefMarkdown),
+    wrapFile(path.basename(chapterPath), chapterDraft),
+    "\n\n=== 草稿长度（去空白字符） ===\n",
+    String(chapterDraftCharCount),
+  ].join("");
+
+  log?.({ event: "status", data: { step: "chapter_qc", chapter: nextChapter, model: models.qc } });
+  await appendStep({
+    runDir: run.dir,
+    step: { kind: "llm", step: "chapter_qc", chapter: nextChapter, model: models.qc, temperature: temps.qc },
+  });
+
+  const qcResult = await openaiChatCompletion({
+    apiKey: config.openai.apiKey,
+    baseUrl: config.openai.baseUrl,
+    model: models.qc,
+    messages: [
+      { role: "system", content: axis },
+      { role: "user", content: qcUserContent },
+    ],
+    temperature: temps.qc,
+  });
+
+  const qcJson = extractJsonFromMarkedBlock(qcResult.text);
+  if (!qcJson || typeof qcJson !== "object") {
+    throw new Error("Chapter QC did not return expected JSON.");
+  }
+
+  const qcMarkdown = String((qcJson as any).qcMarkdown || "").replace(/\r\n/g, "\n").trim();
+  if (!qcMarkdown) throw new Error("Chapter QC returned empty qcMarkdown.");
+
+  const qcPath = await writeChapterQc({
+    novelRoot: config.novelRoot,
+    n: nextChapter,
+    content: qcMarkdown + "\n",
+  });
+
+  const rewritePrompt = await loadTaskPrompt({
+    engineRoot,
+    relativePath: "tasks/chapter/rewrite_with_qc.md",
+  });
+  const rewriteUserContent = [
+    rewritePrompt,
+    wrapFile(path.basename(briefPath), briefMarkdown),
+    wrapFile(path.basename(chapterPath), chapterDraft),
+    wrapFile(path.basename(qcPath), qcMarkdown + "\n"),
+    "\n\n=== 草稿长度（去空白字符） ===\n",
+    String(chapterDraftCharCount),
+  ].join("");
+
+  log?.({ event: "status", data: { step: "rewrite_after_qc", chapter: nextChapter, model: models.write } });
+  await appendStep({
+    runDir: run.dir,
+    step: {
+      kind: "llm",
+      step: "rewrite_after_qc",
+      chapter: nextChapter,
+      model: models.write,
+      temperature: temps.write,
+    },
+  });
+
+  const rewriteResult = await openaiChatCompletion({
+    apiKey: config.openai.apiKey,
+    baseUrl: config.openai.baseUrl,
+    model: models.write,
+    messages: [
+      { role: "system", content: axis },
+      { role: "user", content: rewriteUserContent },
+    ],
+    temperature: temps.write,
+  });
+
+  const finalChapter = rewriteResult.text.trim().replace(/\r\n/g, "\n") + "\n";
+  await writeChapter({
+    novelRoot: config.novelRoot,
+    n: nextChapter,
+    content: finalChapter,
+  });
+  log?.({ event: "result", data: { file: path.basename(qcPath), path: qcPath } });
+  log?.({
+    event: "result",
+    data: { file: path.basename(chapterPath), path: chapterPath, from: "rewrite_after_qc" },
+  });
 
   // const updatePrompt = await loadTaskPrompt({
   //   engineRoot,
@@ -355,6 +454,9 @@ export async function developChapter({
     chapterNumber: nextChapter,
     chapterBrief: briefPath,
     chapter: chapterPath,
+    chapterQc: qcPath,
+    qc: { model: models.qc, usage: qcResult.usage },
+    rewrite: { model: models.write, usage: rewriteResult.usage },
     summary: summaryPath,
     mainUpdates,
   };
