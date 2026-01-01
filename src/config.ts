@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
 export type AppConfig = {
   host: string;
   port: number;
@@ -26,6 +28,14 @@ export type AppConfig = {
       qc: number;
       update: number;
     };
+    reasoning: {
+      setup: ReasoningEffort | null;
+      summary: ReasoningEffort | null;
+      brief: ReasoningEffort | null;
+      write: ReasoningEffort | null;
+      qc: ReasoningEffort | null;
+      update: ReasoningEffort | null;
+    };
     chapterQcPasses: number;
   };
 };
@@ -38,6 +48,7 @@ type FileConfig = Partial<{
   defaults: {
     models?: Partial<AppConfig["defaults"]["models"]>;
     temperature?: Partial<AppConfig["defaults"]["temperature"]>;
+    reasoning?: Partial<AppConfig["defaults"]["reasoning"]>;
     chapterQcPasses?: number;
   };
 }>;
@@ -93,6 +104,14 @@ export async function loadConfig({ engineRoot }: { engineRoot: string }): Promis
         write: fileConfig?.defaults?.temperature?.write ?? 0.85,
         qc: fileConfig?.defaults?.temperature?.qc ?? 0.2,
         update: fileConfig?.defaults?.temperature?.update ?? 0.2,
+      },
+      reasoning: {
+        setup: fileConfig?.defaults?.reasoning?.setup ?? null,
+        summary: fileConfig?.defaults?.reasoning?.summary ?? null,
+        brief: fileConfig?.defaults?.reasoning?.brief ?? "medium",
+        write: fileConfig?.defaults?.reasoning?.write ?? null,
+        qc: fileConfig?.defaults?.reasoning?.qc ?? "medium",
+        update: fileConfig?.defaults?.reasoning?.update ?? null,
       },
       chapterQcPasses: fileConfig?.defaults?.chapterQcPasses || 1,
     },

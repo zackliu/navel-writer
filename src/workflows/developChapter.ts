@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import type { AppConfig } from "../config.js";
+import type { AppConfig, ReasoningEffort } from "../config.js";
 import { openaiChatCompletion } from "../llm/openaiChat.js";
 import { loadAxisPrompts, loadTaskPrompt } from "../prompts/promptLoader.js";
 import { CORE_FILES, novelPath, type CoreFileName } from "../novel/pathing.js";
@@ -62,6 +62,29 @@ function pickTemps({ config, temperatures }: { config: AppConfig; temperatures?:
     write: typeof t.write === "number" ? t.write : config.defaults.temperature.write,
     qc: typeof t.qc === "number" ? t.qc : config.defaults.temperature.qc,
     update: typeof t.update === "number" ? t.update : config.defaults.temperature.update,
+  };
+}
+
+function pickReasoning({
+  config,
+  reasoning,
+}: {
+  config: AppConfig;
+  reasoning?: any;
+}): {
+  summary: ReasoningEffort | null;
+  brief: ReasoningEffort | null;
+  write: ReasoningEffort | null;
+  qc: ReasoningEffort | null;
+  update: ReasoningEffort | null;
+} {
+  const r = reasoning || {};
+  return {
+    summary: r.summary ?? config.defaults.reasoning.summary ?? null,
+    brief: r.brief ?? config.defaults.reasoning.brief ?? null,
+    write: r.write ?? config.defaults.reasoning.write ?? null,
+    qc: r.qc ?? config.defaults.reasoning.qc ?? null,
+    update: r.update ?? config.defaults.reasoning.update ?? null,
   };
 }
 
@@ -186,6 +209,7 @@ export async function developChapter({
 
   const models = pickModels({ config, models: modelsInput });
   const temps = pickTemps({ config, temperatures });
+  const reasoning = pickReasoning({ config, reasoning: modelsInput?.reasoning });
 
   const axis = await loadAxisPrompts({ engineRoot, kind: "chapter" });
   const coreFiles = await requireCoreFiles({ novelRoot: config.novelRoot });
@@ -282,6 +306,7 @@ export async function developChapter({
         { role: "user", content: briefUserContent },
       ],
       temperature: temps.brief,
+      reasoningEffort: reasoning.brief,
     });
 
     briefMarkdown = briefResult.text.trim().replace(/\r\n/g, "\n") + "\n";
@@ -337,6 +362,7 @@ export async function developChapter({
         { role: "user", content: briefQcUserContent },
       ],
       temperature: temps.qc,
+      reasoningEffort: reasoning.qc,
     });
 
     const briefQcJson = extractJsonFromMarkedBlock(briefQcResult.text);
@@ -475,6 +501,7 @@ export async function developChapter({
         { role: "user", content: qcUserContent },
       ],
       temperature: temps.qc,
+      reasoningEffort: reasoning.qc,
     });
     lastQcResult = qcResult;
 

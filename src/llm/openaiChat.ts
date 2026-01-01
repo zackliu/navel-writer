@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/index.js";
+import type { ReasoningEffort } from "../config.js";
 
 function isRetryableError(error: unknown): boolean {
   if (!error) return false;
@@ -41,6 +42,7 @@ export async function openaiChatCompletion({
   messages,
   temperature,
   maxTokens,
+  reasoningEffort,
   timeoutMs = 300_000,
 }: {
   apiKey: string;
@@ -49,6 +51,7 @@ export async function openaiChatCompletion({
   messages: ChatCompletionMessageParam[];
   temperature: number;
   maxTokens?: number;
+  reasoningEffort?: ReasoningEffort | null;
   timeoutMs?: number;
 }): Promise<{ text: string; usage: unknown; raw: unknown }> {
   if (!apiKey) {
@@ -73,6 +76,7 @@ export async function openaiChatCompletion({
           messages,
           temperature,
           ...(typeof maxTokens === "number" ? { max_tokens: maxTokens } : {}),
+          ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
         },
         { timeout: timeoutMs }
       );
