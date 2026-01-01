@@ -6,25 +6,18 @@ async function readText(filePath: string): Promise<string> {
   return raw.replace(/\r\n/g, "\n");
 }
 
-export async function loadAxisPrompts({ engineRoot }: { engineRoot: string }): Promise<string> {
-  const axisDir = path.join(engineRoot, "prompts", "axis");
-  const names = [
-    "01_mission.md",
-    "02_project_truth.md",
-    "03_story_kernel.md",
-    "04_character_kernel.md",
-    "05_motifs.md",
-    "06_irreversible_consequence.md",
-    "07_scene_rules.md",
-    "08_artifacts_workflow.md",
-    "09_anti_model_taste.md",
-    "10_output_protocol.md",
-  ];
-  const parts: string[] = [];
-  for (const name of names) {
-    parts.push(await readText(path.join(axisDir, name)));
-  }
-  return parts.join("\n\n");
+type AxisKind = "chapter" | "setup";
+
+export async function loadAxisPrompts({
+  engineRoot,
+  kind = "chapter",
+}: {
+  engineRoot: string;
+  kind?: AxisKind;
+}): Promise<string> {
+  const axisRoot = path.join(engineRoot, "prompts", "axis");
+  const singleFile = path.join(axisRoot, `${kind}.md`);
+  return readText(singleFile);
 }
 
 export async function loadTaskPrompt({

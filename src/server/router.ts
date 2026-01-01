@@ -128,14 +128,18 @@ export function createRouter({ config, engineRoot }: { config: AppConfig; engine
         try {
           const chapterNumber =
             body?.chapterNumber == null ? undefined : Number(body.chapterNumber);
+          const qcPasses = body?.qcPasses == null ? undefined : Number(body.qcPasses);
+          const useExistingBrief = body?.useExistingBrief === true;
           const result = await developChapter({
             config,
             engineRoot,
             userGuidance: body?.userGuidance || "",
             chapterNumber: Number.isFinite(chapterNumber) ? chapterNumber : undefined,
+            qcPasses: Number.isFinite(qcPasses) ? qcPasses : undefined,
             models: body?.models,
             temperatures: body?.temperatures,
             mainWriteMode: body?.mainWriteMode || "overwrite",
+            useExistingBrief,
             log,
           });
 

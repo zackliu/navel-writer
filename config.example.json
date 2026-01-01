@@ -13,7 +13,7 @@
       "write": "gpt-4.1",
       "qc": "gpt-4.1",
       "update": "gpt-4.1"
-    }
+    },
+    "chapterQcPasses": 1
   }
 }
-

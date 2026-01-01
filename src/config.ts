@@ -26,6 +26,7 @@ export type AppConfig = {
       qc: number;
       update: number;
     };
+    chapterQcPasses: number;
   };
 };
 
@@ -37,6 +38,7 @@ type FileConfig = Partial<{
   defaults: {
     models?: Partial<AppConfig["defaults"]["models"]>;
     temperature?: Partial<AppConfig["defaults"]["temperature"]>;
+    chapterQcPasses?: number;
   };
 }>;
 
@@ -92,6 +94,7 @@ export async function loadConfig({ engineRoot }: { engineRoot: string }): Promis
         qc: fileConfig?.defaults?.temperature?.qc ?? 0.2,
         update: fileConfig?.defaults?.temperature?.update ?? 0.2,
       },
+      chapterQcPasses: fileConfig?.defaults?.chapterQcPasses || 1,
     },
   };
 }

@@ -51,6 +51,18 @@ export async function readChapter({ novelRoot, n }: { novelRoot: string; n: numb
   return readUtf8IfExists(abs);
 }
 
+export async function readChapterBrief({
+  novelRoot,
+  n,
+}: {
+  novelRoot: string;
+  n: number;
+}): Promise<string | null> {
+  const dir = chaptersDir(novelRoot);
+  const abs = ensureWithinRoot({ root: novelRoot, targetPath: path.join(dir, chapterBriefFileName(n)) });
+  return readUtf8IfExists(abs);
+}
+
 export async function writeChapter({
   novelRoot,
   n,

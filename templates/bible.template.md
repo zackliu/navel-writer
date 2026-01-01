@@ -56,18 +56,23 @@
 {{INFO_EVIDENCE_FLOW}}
 （写清：每一类留痕通常由谁产生、谁会听见/看见、会怎么被利用（威胁/交换/逼选/栽赃/遮掩/等等））
 
-### 3.4 势力里的人（为每个势力定义足够多的人名，这里不需要说他们是谁，重要的人会在characters里面定义）
+### 3.4 势力里的人（为每个势力定义足够多的姓名，这里不需要说他们是谁，重要的人会在characters里面定义）
 {{FACTION_NAMING}}
 
 ---
 
 ## 4) 长/中/短线（写进 Bible，供 outline 与 continuity_log 对齐）
 
-### 4.1 长线（终局线：发动机的最终结算）
-- L：{{LONG_LINE}}
-- 终局必须兑现的代价（主代价类型必须写清）：{{ENDGAME_COST}}
+### 4.1 故事推进方式：
 
-### 4.2 中线（3-5 条：多章汇聚爆点）
+- 故事推进的第一因素：
+- 用什么样的叙事技巧：
+
+### 4.2 长线（终局线：发动机的最终结算）
+- L：{{LONG_LINE}}
+- 整个故事的梗概，要覆盖人物，事件，人物关系发展，事件发展，中间几个重要的剧情节点，最终结局：{{ENDGAME_COST}}
+
+### 4.3 中线（3-5 条：多章汇聚爆点/重要的剧情节点）
 - M1：{{MIDLINE_1}}
 - M2：{{MIDLINE_2}}
 - M3：{{MIDLINE_3}}
@@ -79,14 +84,8 @@
 - M3 爆点（结构性锁死是什么）：{{MIDLINE_3_DETONATION}}
 - M4 爆点（结构性锁死是什么）：{{MIDLINE_4_DETONATION}}
 
-### 4.3 短线压力池（每章从这里抽 1–2 个让局面更紧）
-> 短线必须是“可复述/可传导/可计时”的实体压力，不是心情；每条必须写清触发条件（计时器/窗口/阈值）。
-- S-Pressure Pool：
-  - {{SHORT_PRESSURE_1}}（代价类型：{{SP1_COST_TYPE}}；计时器/触发：{{SP1_TIMER}}；可利用方式：{{SP1_USE}}）
-  - {{SHORT_PRESSURE_2}}（代价类型：{{SP2_COST_TYPE}}；计时器/触发：{{SP2_TIMER}}；可利用方式：{{SP2_USE}}）
-  - {{SHORT_PRESSURE_3}}（代价类型：{{SP3_COST_TYPE}}；计时器/触发：{{SP3_TIMER}}；可利用方式：{{SP3_USE}}）
+每条中线到底是并行的叙事线，还是某个阶段性剧情节点
 
----
 
 ## 5) 升级台阶（节奏保证：从轻到重，但不慢）
 
@@ -107,14 +106,16 @@
 
 > 规则写法：能被角色利用，也能惩罚角色；并且能升级（与“升级台阶”一致）。规则必须留下现场后果。
 
-1. **规则 1**：{{RULE_1}}（可利用方式：{{RULE_1_USE}}；惩罚方式：{{RULE_1_PUNISH}}；升级点：{{RULE_1_UPGRADE}}）
-2. **规则 2**：{{RULE_2}}（可利用方式：{{RULE_2_USE}}；惩罚方式：{{RULE_2_PUNISH}}；升级点：{{RULE_2_UPGRADE}}）
-3. **规则 3**：{{RULE_3}}（可利用方式：{{RULE_3_USE}}；惩罚方式：{{RULE_3_PUNISH}}；升级点：{{RULE_3_UPGRADE}}）
+1. **规则 1**：{{RULE_1}}（是显性的还是隐性的：{{RULE_1_OBVIOUS}}; 可利用方式：{{RULE_1_USE}}；惩罚方式：{{RULE_1_PUNISH}}；升级点：{{RULE_1_UPGRADE}}）
+2. **规则 2**：{{RULE_2}}（是显性的还是隐性的：{{RULE_2_OBVIOUS}}; 可利用方式：{{RULE_2_USE}}；惩罚方式：{{RULE_2_PUNISH}}；升级点：{{RULE_2_UPGRADE}}）
+3. **规则 3**：{{RULE_3}}（是显性的还是隐性的：{{RULE_3_OBVIOUS}}; 可利用方式：{{RULE_3_USE}}；惩罚方式：{{RULE_3_PUNISH}}；升级点：{{RULE_3_UPGRADE}}）
 ...
 
 ---
 
 ## 7) 时间线基准（锚点）
+
+> 至少要说明开篇在什么时间点，中间重要的剧情节点的时间点，结局的时间点。
 
 - {{TIMELINE_ANCHOR_1}}
 - {{TIMELINE_ANCHOR_2}}
@@ -129,17 +130,7 @@
 
 ---
 
-## 9) 核心角色在发动机中的位置（避免“只写主角”）
-
-| 角色 | 在发动机里扮演的功能（不是人设） | 他握着的筹码（实体/可用） | 他最可能做的背叛（可触发条件） | 他会被哪条线逼到墙角（L/M/S） | 他常用的软收口方式（策略/防御） |
-|---|---|---|---|---|---|
-| {{PROTAGONIST}} | {{P_FUNCTION}} | {{P_LEVERAGE}} | {{P_BETRAYAL}} | {{P_FORCED_BY_LINE}} | {{P_SOFT_DOOR_STYLE}} |
-| {{KEY_CHAR_2}} | {{C2_FUNCTION}} | {{C2_LEVERAGE}} | {{C2_BETRAYAL}} | {{C2_FORCED_BY_LINE}} | {{C2_SOFT_DOOR_STYLE}} |
-| {{KEY_CHAR_3}} | {{C3_FUNCTION}} | {{C3_LEVERAGE}} | {{C3_BETRAYAL}} | {{C3_FORCED_BY_LINE}} | {{C3_SOFT_DOOR_STYLE}} |
-
----
-
-## 10) 术语表/名词表（可选）
+## 9) 术语表/名词表（可选）
 
 - {{TERM_1}}
 - {{TERM_2}}

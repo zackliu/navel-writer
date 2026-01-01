@@ -130,6 +130,23 @@
             </div>
           </div>
 
+          <label class="check">
+            <input id="useExistingBrief" type="checkbox" />
+            直接使用已有 brief（跳过生成，缺失时报错）
+          </label>
+
+          <div>
+            <label class="label">QC 次数（控制“草稿→QC→改写”的循环）</label>
+            <input
+              id="chapterQcPasses"
+              class="input"
+              type="number"
+              min="1"
+              step="1"
+              placeholder="默认 1，填写 2/3 可多轮 QC"
+            />
+          </div>
+
           <label class="label">模型（可选）</label>
           <div class="grid2">
             <input id="modelSummary" class="input" placeholder="summary 模型，如 gpt-4o-mini" />

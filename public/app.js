@@ -242,7 +242,7 @@
   async function refreshState(opts = {}) {
     const state = await apiJson("/api/state");
     $("connInfo").textContent = `已连接 · ${state.novelRoot}`;
-    setChapterList(state.chapters || []);
+    setChapterList(state.chapters || [], { reloadCurrent: opts.reloadChapter });
     if (!opts.silent) addMsg({ tag: "state", tagClass: "ok", text: JSON.stringify(state, null, 2) });
     return state;
   }
@@ -280,7 +280,9 @@
   });
 
   $("refreshFiles").addEventListener("click", () => refreshFiles().catch(errToChat));
-  $("refreshState").addEventListener("click", () => refreshState().catch(errToChat));
+  $("refreshState").addEventListener("click", () =>
+    refreshState({ reloadChapter: mainView === "reader" }).catch(errToChat)
+  );
 
   function errToChat(error) {
     addMsg({ tag: "error", tagClass: "bad", text: String(error?.message || error) });
@@ -406,10 +408,14 @@ ${Object.keys(outputs).length} files`,
 
     const cnRaw = $("chapterNumber").value.trim();
     const cn = cnRaw ? Number(cnRaw) : null;
+    const qcRaw = ($("chapterQcPasses")?.value || "").trim();
+    const qcPasses = qcRaw ? Number(qcRaw) : null;
 
     return {
       userGuidance: $("chapterGuidance").value || "",
       chapterNumber: Number.isFinite(cn) ? cn : null,
+      qcPasses: Number.isFinite(qcPasses) && qcPasses > 0 ? qcPasses : null,
+      useExistingBrief: Boolean($("useExistingBrief")?.checked),
       models,
       mainWriteMode: $("mainWriteMode").value,
     };
@@ -417,7 +423,14 @@ ${Object.keys(outputs).length} files`,
 
   $("runChapter").addEventListener("click", async () => {
     const body = collectChapterBody();
-    addMsg({ tag: "chapter", tagClass: "ok", text: `开始写作: chapterNumber=${body.chapterNumber ?? "(auto)"}\nmainWriteMode=${body.mainWriteMode}` });
+    addMsg({
+      tag: "chapter",
+      tagClass: "ok",
+      text: `开始生成章节: chapterNumber=${body.chapterNumber ?? "(auto)"}
+mainWriteMode=${body.mainWriteMode}
+useExistingBrief=${body.useExistingBrief ? "yes" : "no"}
+qcPasses=${body.qcPasses ?? "(default)"}`,
+    });
 
     try {
       await apiSsePost("/api/develop-chapter", body, (evt) => {
@@ -461,9 +474,10 @@ ${Object.keys(outputs).length} files`,
     }
   });
 
-  function setChapterList(list) {
+  function setChapterList(list, opts = {}) {
     chapters = Array.isArray(list) ? [...list].sort((a, b) => a - b) : [];
     if (!chapterSelect) return;
+    const reloadCurrent = Boolean(opts.reloadCurrent);
 
     chapterSelect.innerHTML = "";
     if (!chapters.length) {
@@ -496,7 +510,10 @@ ${Object.keys(outputs).length} files`,
     chapterSelect.value = String(target);
     if (!hasCurrent) currentChapter = null;
 
-    if (mainView === "reader" && currentChapter == null && target != null) {
+    const shouldReload =
+      mainView === "reader" && target != null && (currentChapter == null || reloadCurrent);
+
+    if (shouldReload) {
       loadChapter(target).catch(errToChat);
     } else {
       updateChapterNavButtons();
@@ -637,7 +654,7 @@ ${Object.keys(outputs).length} files`,
 
   if (refreshChaptersBtn) {
     refreshChaptersBtn.addEventListener("click", () => {
-      refreshState({ silent: true }).catch(errToChat);
+      refreshState({ silent: true, reloadChapter: true }).catch(errToChat);
     });
   }
 

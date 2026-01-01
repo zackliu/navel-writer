@@ -251,7 +251,7 @@ export async function generateSetup({
     },
   });
 
-  const axis = await loadAxisPrompts({ engineRoot });
+  const axis = await loadAxisPrompts({ engineRoot, kind: "setup" });
 
   if (setupMode === "incremental") {
     const normalizedTarget = normalizeTargetFile(targetFile);

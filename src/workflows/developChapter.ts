@@ -9,11 +9,13 @@ import {
   listChapterNumbers,
   parseSummaryUpTo,
   readChapter,
+  readChapterBrief,
   readSummary,
   writeChapter,
   writeChapterBrief,
   writeChapterQc,
   writeSummary,
+  chapterBriefFileName,
 } from "../novel/chapters.js";
 import { extractJsonFromMarkedBlock } from "../utils/structuredOutput.js";
 import { appendStep, createRun, updateOutputs } from "../runs/runStore.js";
@@ -151,30 +153,40 @@ export async function developChapter({
   engineRoot,
   userGuidance,
   chapterNumber,
+  qcPasses: qcPassesInput,
   models: modelsInput,
   temperatures,
   mainWriteMode = "overwrite",
+  useExistingBrief: useExistingBriefInput = false,
   log,
 }: {
   config: AppConfig;
   engineRoot: string;
   userGuidance: string;
   chapterNumber?: number;
+  qcPasses?: number;
   models?: any;
   temperatures?: any;
   mainWriteMode?: "overwrite" | "draft";
+  useExistingBrief?: boolean;
   log?: Logger;
 }): Promise<{ runId: string; outputs: Record<string, unknown> }> {
+  const requestedQcPasses =
+    typeof qcPassesInput === "number" && Number.isFinite(qcPassesInput) ? qcPassesInput : null;
+  const baseQcPasses = requestedQcPasses ?? config.defaults.chapterQcPasses ?? 1;
+  const qcPasses = Math.max(1, Math.floor(baseQcPasses));
+  const useExistingBrief = useExistingBriefInput === true;
+
   const run = await createRun({
     novelRoot: config.novelRoot,
     type: "chapter",
-    input: { userGuidance, chapterNumber, models: modelsInput, mainWriteMode },
+    input: { userGuidance, chapterNumber, models: modelsInput, mainWriteMode, qcPasses, useExistingBrief },
   });
 
   const models = pickModels({ config, models: modelsInput });
   const temps = pickTemps({ config, temperatures });
 
-  const axis = await loadAxisPrompts({ engineRoot });
+  const axis = await loadAxisPrompts({ engineRoot, kind: "chapter" });
   const coreFiles = await requireCoreFiles({ novelRoot: config.novelRoot });
 
   const existingChapterNumbers = await listChapterNumbers({ novelRoot: config.novelRoot });
@@ -194,61 +206,87 @@ export async function developChapter({
     recentChapters.push(wrapFile(`chapters/chapter_${String(n).padStart(2, "0")}.md`, content));
   }
 
-  const { summaryMarkdown, summaryPath } = await buildSummaryIfNeeded({
-    config,
-    engineRoot,
-    axis,
-    coreFiles,
-    priorChapterNumbers,
-    models,
-    temps,
-    log,
-    runDir: run.dir,
-  });
+  // const { summaryMarkdown, summaryPath } = await buildSummaryIfNeeded({
+  //   config,
+  //   engineRoot,
+  //   axis,
+  //   coreFiles,
+  //   priorChapterNumbers,
+  //   models,
+  //   temps,
+  //   log,
+  //   runDir: run.dir,
+  // });
 
-  const briefPrompt = await loadTaskPrompt({
-    engineRoot,
-    relativePath: "tasks/chapter/generate_chapter_brief.md",
-  });
+  const briefRelativePath = path.join("chapters", chapterBriefFileName(nextChapter));
+  const briefAbsPath = novelPath({ novelRoot: config.novelRoot, relativePath: briefRelativePath });
 
-  const briefUserContent = [
-    briefPrompt,
-    wrapFile("bible.md", coreFiles["bible.md"]),
-    wrapFile("characters.md", coreFiles["characters.md"]),
-    wrapFile("outline.md", coreFiles["outline.md"]),
-    wrapFile("continuity_log.md", coreFiles["continuity_log.md"]),
-    summaryMarkdown ? wrapFile("chapters/_summary.md", summaryMarkdown) : "",
-    recentChapters.length ? "\n\n---\n\n## 最近 3 章全文\n" + recentChapters.join("\n") : "",
-    "\n\n---\n\n## 本章信息\n",
-    `目标章节号：${nextChapter}\n`,
-    `用户本章额外要求：\n${userGuidance ? String(userGuidance) : "(无)"}\n`,
-  ].join("");
+  let briefMarkdown: string;
+  let briefPath: string;
 
-  log?.({ event: "status", data: { step: "brief", chapter: nextChapter, model: models.brief } });
-  await appendStep({
-    runDir: run.dir,
-    step: { kind: "llm", step: "brief", model: models.brief, temperature: temps.brief },
-  });
+  if (useExistingBrief) {
+    const existingBrief = await readChapterBrief({ novelRoot: config.novelRoot, n: nextChapter });
+    if (!existingBrief) {
+      throw new Error(
+        `Existing brief not found for chapter ${nextChapter}: ${briefRelativePath}. Generate it first.`
+      );
+    }
+    briefMarkdown = existingBrief.replace(/\r\n/g, "\n");
+    if (!briefMarkdown.trim()) {
+      throw new Error(`Existing brief for chapter ${nextChapter} is empty: ${briefRelativePath}`);
+    }
+    if (!briefMarkdown.endsWith("\n")) briefMarkdown += "\n";
+    briefPath = briefAbsPath;
+    log?.({ event: "status", data: { step: "brief", chapter: nextChapter, mode: "existing" } });
+    await appendStep({
+      runDir: run.dir,
+      step: { kind: "info", step: "brief", mode: "existing", chapter: nextChapter },
+    });
+    log?.({ event: "result", data: { file: path.basename(briefPath), path: briefPath, mode: "existing" } });
+  } else {
+    const briefPrompt = await loadTaskPrompt({
+      engineRoot,
+      relativePath: "tasks/chapter/generate_chapter_brief.md",
+    });
 
-  const briefResult = await openaiChatCompletion({
-    apiKey: config.openai.apiKey,
-    baseUrl: config.openai.baseUrl,
-    model: models.brief,
-    messages: [
-      { role: "system", content: axis },
-      { role: "user", content: briefUserContent },
-    ],
-    temperature: temps.brief,
-  });
+    const briefUserContent = [
+      briefPrompt,
+      wrapFile("bible.md", coreFiles["bible.md"]),
+      wrapFile("characters.md", coreFiles["characters.md"]),
+      wrapFile("outline.md", coreFiles["outline.md"]),
+      wrapFile("continuity_log.md", coreFiles["continuity_log.md"]),
+      // recentChapters.length ? "\n\n---\n\n## 最近 3 章全文\n" + recentChapters.join("\n") : "",
+      "\n\n---\n\n## 本章信息\n",
+      `目标章节号：${nextChapter}\n`,
+      `用户本章额外要求：\n${userGuidance ? String(userGuidance) : "(无)"}\n`,
+    ].join("");
 
-  const briefMarkdown = briefResult.text.trim().replace(/\r\n/g, "\n") + "\n";
-  const briefPath = await writeChapterBrief({
-    novelRoot: config.novelRoot,
-    n: nextChapter,
-    content: briefMarkdown,
-  });
-  log?.({ event: "result", data: { file: path.basename(briefPath), path: briefPath } });
 
+    log?.({ event: "status", data: { step: "brief", chapter: nextChapter, model: models.brief } });
+    await appendStep({
+      runDir: run.dir,
+      step: { kind: "llm", step: "brief", model: models.brief, temperature: temps.brief },
+    });
+
+    const briefResult = await openaiChatCompletion({
+      apiKey: config.openai.apiKey,
+      baseUrl: config.openai.baseUrl,
+      model: models.brief,
+      messages: [
+        { role: "system", content: axis },
+        { role: "user", content: briefUserContent },
+      ],
+      temperature: temps.brief,
+    });
+
+    briefMarkdown = briefResult.text.trim().replace(/\r\n/g, "\n") + "\n";
+    briefPath = await writeChapterBrief({
+      novelRoot: config.novelRoot,
+      n: nextChapter,
+      content: briefMarkdown,
+    });
+    log?.({ event: "result", data: { file: path.basename(briefPath), path: briefPath } });
+  }
   const writePrompt = await loadTaskPrompt({
     engineRoot,
     relativePath: "tasks/chapter/write_chapter.md",
@@ -258,10 +296,9 @@ export async function developChapter({
     wrapFile(path.basename(briefPath), briefMarkdown),
     wrapFile("bible.md", coreFiles["bible.md"]),
     wrapFile("characters.md", coreFiles["characters.md"]),
-    wrapFile("outline.md", coreFiles["outline.md"]),
-    wrapFile("continuity_log.md", coreFiles["continuity_log.md"]),
-    summaryMarkdown ? wrapFile("chapters/_summary.md", summaryMarkdown) : "",
-    recentChapters.length ? "\n\n---\n\n## 最近 3 章全文\n" + recentChapters.join("\n") : "",
+    // wrapFile("outline.md", coreFiles["outline.md"]),
+    // wrapFile("continuity_log.md", coreFiles["continuity_log.md"]),
+    // recentChapters.length ? "\n\n---\n\n## 最近 3 章全文\n" + recentChapters.join("\n") : "",
   ].join("");
 
   log?.({ event: "status", data: { step: "write", chapter: nextChapter, model: models.write } });
@@ -269,6 +306,8 @@ export async function developChapter({
     runDir: run.dir,
     step: { kind: "llm", step: "write", model: models.write, temperature: temps.write },
   });
+
+  console.warn({event:"output", data: writeUserContent})
 
   const chapterDraftResult = await openaiChatCompletion({
     apiKey: config.openai.apiKey,
@@ -281,12 +320,12 @@ export async function developChapter({
     temperature: temps.write,
   });
 
-  const chapterDraft = chapterDraftResult.text.trim().replace(/\r\n/g, "\n") + "\n";
-  const chapterDraftCharCount = countCharsNoSpace(chapterDraft);
+  let currentDraft = chapterDraftResult.text.trim().replace(/\r\n/g, "\n") + "\n";
+  let currentDraftCharCount = countCharsNoSpace(currentDraft);
   const chapterPath = await writeChapter({
     novelRoot: config.novelRoot,
     n: nextChapter,
-    content: chapterDraft,
+    content: currentDraft,
   });
   log?.({ event: "result", data: { file: path.basename(chapterPath), path: chapterPath } });
 
@@ -294,92 +333,143 @@ export async function developChapter({
     engineRoot,
     relativePath: "tasks/chapter/qc_and_rewrite.md",
   });
-  const qcUserContent = [
-    qcPrompt,
-    wrapFile(path.basename(briefPath), briefMarkdown),
-    wrapFile(path.basename(chapterPath), chapterDraft),
-    "\n\n=== 草稿长度（去空白字符） ===\n",
-    String(chapterDraftCharCount),
-  ].join("");
-
-  log?.({ event: "status", data: { step: "chapter_qc", chapter: nextChapter, model: models.qc } });
-  await appendStep({
-    runDir: run.dir,
-    step: { kind: "llm", step: "chapter_qc", chapter: nextChapter, model: models.qc, temperature: temps.qc },
-  });
-
-  const qcResult = await openaiChatCompletion({
-    apiKey: config.openai.apiKey,
-    baseUrl: config.openai.baseUrl,
-    model: models.qc,
-    messages: [
-      { role: "system", content: axis },
-      { role: "user", content: qcUserContent },
-    ],
-    temperature: temps.qc,
-  });
-
-  const qcJson = extractJsonFromMarkedBlock(qcResult.text);
-  if (!qcJson || typeof qcJson !== "object") {
-    throw new Error("Chapter QC did not return expected JSON.");
-  }
-
-  const qcMarkdown = String((qcJson as any).qcMarkdown || "").replace(/\r\n/g, "\n").trim();
-  if (!qcMarkdown) throw new Error("Chapter QC returned empty qcMarkdown.");
-
-  const qcPath = await writeChapterQc({
-    novelRoot: config.novelRoot,
-    n: nextChapter,
-    content: qcMarkdown + "\n",
-  });
-
   const rewritePrompt = await loadTaskPrompt({
     engineRoot,
     relativePath: "tasks/chapter/rewrite_with_qc.md",
   });
-  const rewriteUserContent = [
-    rewritePrompt,
-    wrapFile(path.basename(briefPath), briefMarkdown),
-    wrapFile(path.basename(chapterPath), chapterDraft),
-    wrapFile(path.basename(qcPath), qcMarkdown + "\n"),
-    "\n\n=== 草稿长度（去空白字符） ===\n",
-    String(chapterDraftCharCount),
-  ].join("");
+  const chapterBaseName = path.basename(chapterPath, ".md");
+  const qcHistory: string[] = [];
+  let combinedQcMarkdown = "";
+  let qcPath: string | null = null;
+  let lastQcResult: any = null;
+  let lastRewriteResult: any = null;
 
-  log?.({ event: "status", data: { step: "rewrite_after_qc", chapter: nextChapter, model: models.write } });
-  await appendStep({
-    runDir: run.dir,
-    step: {
-      kind: "llm",
-      step: "rewrite_after_qc",
-      chapter: nextChapter,
+  for (let pass = 1; pass <= qcPasses; pass += 1) {
+    const qcUserContentParts = [
+      qcPrompt,
+      wrapFile(path.basename(briefPath), briefMarkdown),
+      wrapFile(path.basename(chapterPath), currentDraft),
+    ];
+
+    if (qcHistory.length) {
+      const qcHistoryWrapped = qcHistory
+        .map((qc, idx) => wrapFile(`${chapterBaseName}_qc_pass_${idx + 1}.md`, qc))
+        .join("");
+      qcUserContentParts.push("\n\n---\n\n## 历史 QC 记录（按时间顺序）\n", qcHistoryWrapped);
+    }
+
+    qcUserContentParts.push("\n\n=== 草稿长度（去空白字符） ===\n", String(currentDraftCharCount));
+
+    const qcUserContent = qcUserContentParts.join("");
+
+    log?.({
+      event: "status",
+      data: { step: "chapter_qc", chapter: nextChapter, pass, totalPasses: qcPasses, model: models.qc },
+    });
+    await appendStep({
+      runDir: run.dir,
+      step: {
+        kind: "llm",
+        step: "chapter_qc",
+        chapter: nextChapter,
+        pass,
+        totalPasses: qcPasses,
+        model: models.qc,
+        temperature: temps.qc,
+      },
+    });
+
+    const qcResult = await openaiChatCompletion({
+      apiKey: config.openai.apiKey,
+      baseUrl: config.openai.baseUrl,
+      model: models.qc,
+      messages: [
+        { role: "system", content: axis },
+        { role: "user", content: qcUserContent },
+      ],
+      temperature: temps.qc,
+    });
+    lastQcResult = qcResult;
+
+    const qcJson = extractJsonFromMarkedBlock(qcResult.text);
+    if (!qcJson || typeof qcJson !== "object") {
+      throw new Error("Chapter QC did not return expected JSON.");
+    }
+
+    const qcMarkdown = String((qcJson as any).qcMarkdown || "").replace(/\r\n/g, "\n").trim();
+    if (!qcMarkdown) throw new Error("Chapter QC returned empty qcMarkdown.");
+
+    const qcEntry = `## QC pass ${pass}\n\n${qcMarkdown}\n`;
+    qcHistory.push(qcEntry);
+    combinedQcMarkdown = qcHistory.join("\n---\n\n");
+
+    qcPath = await writeChapterQc({
+      novelRoot: config.novelRoot,
+      n: nextChapter,
+      content: combinedQcMarkdown,
+    });
+    log?.({ event: "result", data: { file: path.basename(qcPath), path: qcPath, pass } });
+
+    const rewriteUserContent = [
+      rewritePrompt,
+      wrapFile(path.basename(briefPath), briefMarkdown),
+      wrapFile(path.basename(chapterPath), currentDraft),
+      wrapFile(path.basename(qcPath), combinedQcMarkdown),
+      "\n\n=== 草稿长度（去空白字符） ===\n",
+      String(currentDraftCharCount),
+    ].join("");
+
+    log?.({
+      event: "status",
+      data: {
+        step: "rewrite_after_qc",
+        chapter: nextChapter,
+        pass,
+        totalPasses: qcPasses,
+        model: models.write,
+      },
+    });
+    await appendStep({
+      runDir: run.dir,
+      step: {
+        kind: "llm",
+        step: "rewrite_after_qc",
+        chapter: nextChapter,
+        pass,
+        totalPasses: qcPasses,
+        model: models.write,
+        temperature: temps.write,
+      },
+    });
+
+    const rewriteResult = await openaiChatCompletion({
+      apiKey: config.openai.apiKey,
+      baseUrl: config.openai.baseUrl,
       model: models.write,
+      messages: [
+        { role: "system", content: axis },
+        { role: "user", content: rewriteUserContent },
+      ],
       temperature: temps.write,
-    },
-  });
+    });
+    lastRewriteResult = rewriteResult;
 
-  const rewriteResult = await openaiChatCompletion({
-    apiKey: config.openai.apiKey,
-    baseUrl: config.openai.baseUrl,
-    model: models.write,
-    messages: [
-      { role: "system", content: axis },
-      { role: "user", content: rewriteUserContent },
-    ],
-    temperature: temps.write,
-  });
+    currentDraft = rewriteResult.text.trim().replace(/\r\n/g, "\n") + "\n";
+    currentDraftCharCount = countCharsNoSpace(currentDraft);
+    await writeChapter({
+      novelRoot: config.novelRoot,
+      n: nextChapter,
+      content: currentDraft,
+    });
+    log?.({
+      event: "result",
+      data: { file: path.basename(chapterPath), path: chapterPath, from: "rewrite_after_qc", pass },
+    });
+  }
 
-  const finalChapter = rewriteResult.text.trim().replace(/\r\n/g, "\n") + "\n";
-  await writeChapter({
-    novelRoot: config.novelRoot,
-    n: nextChapter,
-    content: finalChapter,
-  });
-  log?.({ event: "result", data: { file: path.basename(qcPath), path: qcPath } });
-  log?.({
-    event: "result",
-    data: { file: path.basename(chapterPath), path: chapterPath, from: "rewrite_after_qc" },
-  });
+  if (!qcPath) {
+    throw new Error("Chapter QC did not run.");
+  }
 
   // const updatePrompt = await loadTaskPrompt({
   //   engineRoot,
@@ -455,9 +545,9 @@ export async function developChapter({
     chapterBrief: briefPath,
     chapter: chapterPath,
     chapterQc: qcPath,
-    qc: { model: models.qc, usage: qcResult.usage },
-    rewrite: { model: models.write, usage: rewriteResult.usage },
-    summary: summaryPath,
+    qc: { model: models.qc, usage: lastQcResult?.usage, passes: qcPasses },
+    rewrite: { model: models.write, usage: lastRewriteResult?.usage, passes: qcPasses },
+    summary: null,
     mainUpdates,
   };
 

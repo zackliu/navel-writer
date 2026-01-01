@@ -68,6 +68,7 @@ npm start
 
 - `POST /api/generate-setup`
 - `POST /api/develop-chapter`
+  - 支持 `useExistingBrief: true` 跳过生成 brief，前提是 `chapters/chapter_XX_brief.md` 已存在，否则返回错误。
 - `GET /api/state`
 - `GET /api/files`
 - `GET /api/file?path=...`
