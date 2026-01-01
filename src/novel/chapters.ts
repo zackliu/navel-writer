@@ -19,6 +19,10 @@ export function chapterBriefFileName(n: number): string {
   return `${chapterBasename(n)}_brief.md`;
 }
 
+export function chapterBriefQcFileName(n: number): string {
+  return `${chapterBasename(n)}_brief_qc.md`;
+}
+
 export function chapterQcFileName(n: number): string {
   return `${chapterBasename(n)}_qc.md`;
 }
@@ -89,6 +93,21 @@ export async function writeChapterBrief({
 }): Promise<string> {
   const dir = chaptersDir(novelRoot);
   const abs = ensureWithinRoot({ root: novelRoot, targetPath: path.join(dir, chapterBriefFileName(n)) });
+  await writeUtf8({ filePath: abs, content });
+  return abs;
+}
+
+export async function writeChapterBriefQc({
+  novelRoot,
+  n,
+  content,
+}: {
+  novelRoot: string;
+  n: number;
+  content: string;
+}): Promise<string> {
+  const dir = chaptersDir(novelRoot);
+  const abs = ensureWithinRoot({ root: novelRoot, targetPath: path.join(dir, chapterBriefQcFileName(n)) });
   await writeUtf8({ filePath: abs, content });
   return abs;
 }

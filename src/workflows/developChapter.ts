@@ -13,6 +13,7 @@ import {
   readSummary,
   writeChapter,
   writeChapterBrief,
+  writeChapterBriefQc,
   writeChapterQc,
   writeSummary,
   chapterBriefFileName,
@@ -223,6 +224,9 @@ export async function developChapter({
 
   let briefMarkdown: string;
   let briefPath: string;
+  let initialBriefMarkdown: string | null = null;
+  let briefQcPath: string | null = null;
+  let briefQcResult: any = null;
 
   if (useExistingBrief) {
     const existingBrief = await readChapterBrief({ novelRoot: config.novelRoot, n: nextChapter });
@@ -236,6 +240,7 @@ export async function developChapter({
       throw new Error(`Existing brief for chapter ${nextChapter} is empty: ${briefRelativePath}`);
     }
     if (!briefMarkdown.endsWith("\n")) briefMarkdown += "\n";
+    initialBriefMarkdown = briefMarkdown;
     briefPath = briefAbsPath;
     log?.({ event: "status", data: { step: "brief", chapter: nextChapter, mode: "existing" } });
     await appendStep({
@@ -280,12 +285,95 @@ export async function developChapter({
     });
 
     briefMarkdown = briefResult.text.trim().replace(/\r\n/g, "\n") + "\n";
+    initialBriefMarkdown = briefMarkdown;
     briefPath = await writeChapterBrief({
       novelRoot: config.novelRoot,
       n: nextChapter,
       content: briefMarkdown,
     });
     log?.({ event: "result", data: { file: path.basename(briefPath), path: briefPath } });
+  }
+
+  if (!useExistingBrief) {
+    const briefQcPrompt = await loadTaskPrompt({
+      engineRoot,
+      relativePath: "tasks/chapter/qc_chapter_brief.md",
+    });
+
+    const targetPreviousNumbers = [nextChapter - 1, nextChapter - 2, nextChapter - 3].filter((n) => n > 0);
+    const orderedPreviousBriefs: string[] = [];
+    for (const n of targetPreviousNumbers) {
+      const prev = await readChapterBrief({ novelRoot: config.novelRoot, n });
+      if (!prev) continue;
+      orderedPreviousBriefs.push(
+        wrapFile(`${chapterBriefFileName(n)} (chapter ${n})`, prev.replace(/\r\n/g, "\n"))
+      );
+    }
+
+    const briefQcUserContent = [
+      briefQcPrompt,
+      wrapFile(path.basename(briefPath), initialBriefMarkdown || briefMarkdown),
+      orderedPreviousBriefs.length
+        ? "\n\n---\n\n## 前三章的brief\n" + orderedPreviousBriefs.join("\n")
+        : "",
+      wrapFile("bible.md", coreFiles["bible.md"]),
+      wrapFile("characters.md", coreFiles["characters.md"]),
+      wrapFile("outline.md", coreFiles["outline.md"]),
+      wrapFile("continuity_log.md", coreFiles["continuity_log.md"]),
+    ].join("");
+
+    log?.({ event: "status", data: { step: "brief_qc", chapter: nextChapter, model: models.qc } });
+    await appendStep({
+      runDir: run.dir,
+      step: { kind: "llm", step: "brief_qc", chapter: nextChapter, model: models.qc, temperature: temps.qc },
+    });
+
+    briefQcResult = await openaiChatCompletion({
+      apiKey: config.openai.apiKey,
+      baseUrl: config.openai.baseUrl,
+      model: models.qc,
+      messages: [
+        { role: "system", content: axis },
+        { role: "user", content: briefQcUserContent },
+      ],
+      temperature: temps.qc,
+    });
+
+    const briefQcJson = extractJsonFromMarkedBlock(briefQcResult.text);
+    if (!briefQcJson || typeof briefQcJson !== "object") {
+      throw new Error("Brief QC did not return expected JSON.");
+    }
+
+    const qcMarkdown = String((briefQcJson as any).qcMarkdown || "").replace(/\r\n/g, "\n").trim();
+    if (!qcMarkdown) throw new Error("Brief QC returned empty qcMarkdown.");
+
+    const revisedBrief = String(
+      (briefQcJson as any).brief || (briefQcJson as any).revisedBrief || (briefQcJson as any).fixedBrief || ""
+    )
+      .replace(/\r\n/g, "\n")
+      .trim();
+    if (!revisedBrief) throw new Error("Brief QC returned empty brief.");
+
+    const qcEntry = `## Brief QC pass 1\n\n${qcMarkdown}\n`;
+    briefQcPath = await writeChapterBriefQc({
+      novelRoot: config.novelRoot,
+      n: nextChapter,
+      content: qcEntry,
+    });
+    log?.({ event: "result", data: { file: path.basename(briefQcPath), path: briefQcPath, pass: 1 } });
+
+    let normalizedBrief = revisedBrief;
+    if (!normalizedBrief.endsWith("\n")) normalizedBrief += "\n";
+    briefMarkdown = normalizedBrief;
+    await writeChapterBrief({
+      novelRoot: config.novelRoot,
+      n: nextChapter,
+      content: briefMarkdown,
+    });
+    log?.({
+      event: "result",
+      data: { file: path.basename(briefPath), path: briefPath, from: "brief_qc" },
+    });
   }
   const writePrompt = await loadTaskPrompt({
     engineRoot,
@@ -307,7 +395,6 @@ export async function developChapter({
     step: { kind: "llm", step: "write", model: models.write, temperature: temps.write },
   });
 
-  console.warn({event:"output", data: writeUserContent})
 
   const chapterDraftResult = await openaiChatCompletion({
     apiKey: config.openai.apiKey,
@@ -543,6 +630,8 @@ export async function developChapter({
   const outputs = {
     chapterNumber: nextChapter,
     chapterBrief: briefPath,
+    briefQc: briefQcPath,
+    briefQcInfo: briefQcPath ? { model: models.qc, usage: briefQcResult?.usage, passes: 1 } : null,
     chapter: chapterPath,
     chapterQc: qcPath,
     qc: { model: models.qc, usage: lastQcResult?.usage, passes: qcPasses },
