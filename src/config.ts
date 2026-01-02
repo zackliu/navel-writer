@@ -108,7 +108,7 @@ export async function loadConfig({ engineRoot }: { engineRoot: string }): Promis
       reasoning: {
         setup: fileConfig?.defaults?.reasoning?.setup ?? null,
         summary: fileConfig?.defaults?.reasoning?.summary ?? null,
-        brief: fileConfig?.defaults?.reasoning?.brief ?? "medium",
+        brief: fileConfig?.defaults?.reasoning?.brief ?? "high",
         write: fileConfig?.defaults?.reasoning?.write ?? null,
         qc: fileConfig?.defaults?.reasoning?.qc ?? "medium",
         update: fileConfig?.defaults?.reasoning?.update ?? null,

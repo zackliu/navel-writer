@@ -117,7 +117,8 @@ async function runIncrementalSetup({
   const effectiveTemp =
     typeof temperature === "number"
       ? temperature
-      : config.defaults.temperature.update ?? config.defaults.temperature.setup;
+      : config.defaults.temperature.setup;
+  const reasoning = config.defaults.reasoning.setup ?? null;
 
   const existingByFile: Record<CoreFileName, string | null> = {
     "bible.md": null,
@@ -172,6 +173,7 @@ async function runIncrementalSetup({
       { role: "user", content: userContent },
     ],
     temperature: effectiveTemp,
+    reasoningEffort: reasoning,
   });
 
   const markdown = result.text.trim().replace(/\r\n/g, "\n") + "\n";
@@ -299,6 +301,8 @@ export async function generateSetup({
     "outline.md": "",
     "continuity_log.md": "",
   };
+  let outlineQcPath: string | null = null;
+  let outlineQcUsage: unknown = null;
 
   for (const fileName of orderedFiles) {
     const model =
@@ -307,6 +311,7 @@ export async function generateSetup({
       typeof temperature === "number"
         ? temperature
         : config.defaults.temperature.setup;
+    const reasoning = config.defaults.reasoning.setup ?? null;
 
     const priorFiles = GENERATION_ORDER.slice(0, GENERATION_ORDER.indexOf(fileName)).map(
       (name) => ({
@@ -352,6 +357,7 @@ export async function generateSetup({
         { role: "user", content: userContent },
       ],
       temperature: effectiveTemp,
+      reasoningEffort: reasoning,
     });
 
     const markdown = result.text.trim().replace(/\r\n/g, "\n") + "\n";
@@ -380,85 +386,191 @@ export async function generateSetup({
     };
 
     log?.({ event: "result", data: { file: fileName, path: target } });
+
+    // For full outline generation, run a dedicated QC pass and rewrite once using the QC checklist.
+    if (setupMode === "full" && fileName === "outline.md") {
+      const outlineQcPrompt = await loadTaskPrompt({
+        engineRoot,
+        relativePath: "tasks/setup/qc_outline.md",
+      });
+      const outlineRewritePrompt = await loadTaskPrompt({
+        engineRoot,
+        relativePath: "tasks/setup/rewrite_outline_with_qc.md",
+      });
+
+      const outlineQcUserContent = [
+        outlineQcPrompt,
+        wrapFile("requirements", requirements ? String(requirements) : "(none)"),
+        wrapFile("outline.md", markdown),
+        wrapFile("bible.md", generated["bible.md"] || existingByFile["bible.md"]),
+        wrapFile("characters.md", generated["characters.md"] || existingByFile["characters.md"]),
+        wrapFile("continuity_log.md", generated["continuity_log.md"] || existingByFile["continuity_log.md"]),
+      ].join("");
+
+      const outlineQcModel = config.defaults.models.qc || model;
+      const outlineQcTemp = config.defaults.temperature.qc ?? effectiveTemp;
+
+      log?.({ event: "status", data: { step: "outline_qc", model: outlineQcModel } });
+      await appendStep({
+        runDir: run.dir,
+        step: { kind: "llm", step: "outline_qc", model: outlineQcModel, temperature: outlineQcTemp },
+      });
+
+      const outlineQcResult = await openaiChatCompletion({
+        apiKey: config.openai.apiKey,
+        baseUrl: config.openai.baseUrl,
+        model: outlineQcModel,
+        messages: [
+          { role: "system", content: axis },
+          { role: "user", content: outlineQcUserContent },
+        ],
+        temperature: outlineQcTemp,
+        reasoningEffort: config.defaults.reasoning.setup ?? null,
+      });
+
+      const outlineQcJson = extractJsonFromMarkedBlock(outlineQcResult.text);
+      if (!outlineQcJson || typeof outlineQcJson !== "object") {
+        throw new Error("Outline QC did not return expected JSON.");
+      }
+
+      const qcMarkdown = String((outlineQcJson as any).qcMarkdown || "").replace(/\r\n/g, "\n").trim();
+      if (!qcMarkdown) throw new Error("Outline QC returned empty qcMarkdown.");
+
+      outlineQcPath = novelPath({ novelRoot: config.novelRoot, relativePath: "outline_qc.md" });
+      const qcContent = `## Outline QC pass 1\n\n${qcMarkdown}\n`;
+      await writeUtf8({ filePath: outlineQcPath, content: qcContent });
+      outlineQcUsage = outlineQcResult.usage;
+      log?.({ event: "result", data: { file: "outline_qc.md", path: outlineQcPath, pass: 1 } });
+
+      const outlineRewriteUserContent = [
+        outlineRewritePrompt,
+        wrapFile("outline.md", markdown),
+        wrapFile("outline_qc.md", qcContent),
+        wrapFile("bible.md", generated["bible.md"] || existingByFile["bible.md"]),
+        wrapFile("characters.md", generated["characters.md"] || existingByFile["characters.md"]),
+        wrapFile("continuity_log.md", generated["continuity_log.md"] || existingByFile["continuity_log.md"]),
+      ].join("");
+
+      const outlineRewriteModel = model;
+      const outlineRewriteTemp = effectiveTemp;
+
+      log?.({ event: "status", data: { step: "outline_rewrite_after_qc", model: outlineRewriteModel } });
+      await appendStep({
+        runDir: run.dir,
+        step: {
+          kind: "llm",
+          step: "outline_rewrite_after_qc",
+          model: outlineRewriteModel,
+          temperature: outlineRewriteTemp,
+        },
+      });
+
+      const outlineRewriteResult = await openaiChatCompletion({
+        apiKey: config.openai.apiKey,
+        baseUrl: config.openai.baseUrl,
+        model: outlineRewriteModel,
+        messages: [
+          { role: "system", content: axis },
+          { role: "user", content: outlineRewriteUserContent },
+        ],
+        temperature: outlineRewriteTemp,
+        reasoningEffort: config.defaults.reasoning.setup ?? null,
+      });
+
+      const rewrittenOutline = outlineRewriteResult.text.trim().replace(/\r\n/g, "\n") + "\n";
+      generated["outline.md"] = rewrittenOutline;
+      await writeUtf8({ filePath: target, content: rewrittenOutline });
+      targetPaths["outline.md"] = target;
+      outputs["outline.md"] = {
+        ...(outputs["outline.md"] as any),
+        path: target,
+        model: outlineRewriteModel,
+        usage: outlineRewriteResult.usage,
+        qc: { changed: true, reason: "outline_qc", qcPath: outlineQcPath },
+      };
+      log?.({ event: "result", data: { file: "outline.md", path: target, from: "outline_rewrite_after_qc" } });
+    }
   }
 
   // Setup QC pass to ensure the four files are synced.
-  const qcModel = config.defaults.models.qc || config.defaults.models.setup;
-  const qcTemperature = config.defaults.temperature.qc ?? config.defaults.temperature.setup ?? 0.2;
-  const qcPrompt = await loadTaskPrompt({
-    engineRoot,
-    relativePath: "tasks/setup/qc_setup.md",
-  });
+  // const qcModel = config.defaults.models.qc || config.defaults.models.setup;
+  // const qcTemperature = config.defaults.temperature.qc ?? config.defaults.temperature.setup ?? 0.2;
+  // const qcReasoning = config.defaults.reasoning.setup ?? null;
+  // const qcPrompt = await loadTaskPrompt({
+  //   engineRoot,
+  //   relativePath: "tasks/setup/qc_setup.md",
+  // });
 
-  const qcUserContent = [
-    qcPrompt,
-    wrapFile("requirements", requirements ? String(requirements) : "(none)"),
-    ...GENERATION_ORDER.map((fileName) =>
-      wrapFile(fileName, generated[fileName] || existingByFile[fileName] || "")
-    ),
-  ].join("\n\n");
+  // const qcUserContent = [
+  //   qcPrompt,
+  //   wrapFile("requirements", requirements ? String(requirements) : "(none)"),
+  //   ...GENERATION_ORDER.map((fileName) =>
+  //     wrapFile(fileName, generated[fileName] || existingByFile[fileName] || "")
+  //   ),
+  // ].join("\n\n");
 
-  log?.({ event: "status", data: { step: "setup_qc", model: qcModel } });
-  await appendStep({
-    runDir: run.dir,
-    step: { kind: "llm", step: "setup_qc", model: qcModel, temperature: qcTemperature },
-  });
+  // log?.({ event: "status", data: { step: "setup_qc", model: qcModel } });
+  // await appendStep({
+  //   runDir: run.dir,
+  //   step: { kind: "llm", step: "setup_qc", model: qcModel, temperature: qcTemperature },
+  // });
 
-  const qcResult = await openaiChatCompletion({
-    apiKey: config.openai.apiKey,
-    baseUrl: config.openai.baseUrl,
-    model: qcModel,
-    messages: [
-      { role: "system", content: axis },
-      { role: "user", content: qcUserContent },
-    ],
-    temperature: qcTemperature,
-  });
+  // const qcResult = await openaiChatCompletion({
+  //   apiKey: config.openai.apiKey,
+  //   baseUrl: config.openai.baseUrl,
+  //   model: qcModel,
+  //   messages: [
+  //     { role: "system", content: axis },
+  //     { role: "user", content: qcUserContent },
+  //   ],
+  //   temperature: qcTemperature,
+  //   reasoningEffort: qcReasoning,
+  // });
 
-  const qcJson = extractJsonFromMarkedBlock(qcResult.text);
-  if (!qcJson || typeof qcJson !== "object" || typeof (qcJson as any).files !== "object") {
-    throw new Error("Setup QC did not return expected JSON.");
-  }
+  // const qcJson = extractJsonFromMarkedBlock(qcResult.text);
+  // if (!qcJson || typeof qcJson !== "object" || typeof (qcJson as any).files !== "object") {
+  //   throw new Error("Setup QC did not return expected JSON.");
+  // }
 
-  outputs["setupQc"] = {
-    model: qcModel,
-    usage: qcResult.usage,
-    conclusion: String((qcJson as any).conclusion || ""),
-  };
+  // outputs["setupQc"] = {
+  //   model: qcModel,
+  //   usage: qcResult.usage,
+  //   conclusion: String((qcJson as any).conclusion || ""),
+  // };
 
-  for (const fileName of GENERATION_ORDER) {
-    const spec = (qcJson as any).files?.[fileName];
-    if (!spec || typeof spec !== "object") continue;
+  // for (const fileName of GENERATION_ORDER) {
+  //   const spec = (qcJson as any).files?.[fileName];
+  //   if (!spec || typeof spec !== "object") continue;
 
-    const changed = Boolean(spec.changed);
-    const reason = String(spec.reason || "");
-    const newContent = changed ? String(spec.content || "") : generated[fileName];
-    if (!newContent || !newContent.trim()) {
-      if (changed) throw new Error(`Setup QC returned empty content for ${fileName}.`);
-      continue;
-    }
+  //   const changed = Boolean(spec.changed);
+  //   const reason = String(spec.reason || "");
+  //   const newContent = changed ? String(spec.content || "") : generated[fileName];
+  //   if (!newContent || !newContent.trim()) {
+  //     if (changed) throw new Error(`Setup QC returned empty content for ${fileName}.`);
+  //     continue;
+  //   }
 
-    const normalized = newContent.replace(/\r\n/g, "\n").trimEnd() + "\n";
-    generated[fileName] = normalized;
+  //   const normalized = newContent.replace(/\r\n/g, "\n").trimEnd() + "\n";
+  //   generated[fileName] = normalized;
 
-    if (changed) {
-      const target = targetPaths[fileName] ||
-        (resolvedWriteMode === "overwrite"
-          ? novelPath({ novelRoot: config.novelRoot, relativePath: fileName })
-          : path.join(draftsDir(config.novelRoot), run.id, fileName));
-      await writeUtf8({ filePath: target, content: normalized });
-      targetPaths[fileName] = target;
-      log?.({ event: "result", data: { file: fileName, path: target, from: "setup_qc", reason } });
-    }
+  //   if (changed) {
+  //     const target = targetPaths[fileName] ||
+  //       (resolvedWriteMode === "overwrite"
+  //         ? novelPath({ novelRoot: config.novelRoot, relativePath: fileName })
+  //         : path.join(draftsDir(config.novelRoot), run.id, fileName));
+  //     await writeUtf8({ filePath: target, content: normalized });
+  //     targetPaths[fileName] = target;
+  //     log?.({ event: "result", data: { file: fileName, path: target, from: "setup_qc", reason } });
+  //   }
 
-    outputs[fileName] = {
-      ...(outputs[fileName] as any),
-      path: targetPaths[fileName],
-      qc: { changed, reason },
-    };
-  }
+  //   outputs[fileName] = {
+  //     ...(outputs[fileName] as any),
+  //     path: targetPaths[fileName],
+  //     qc: { changed, reason },
+  //   };
+  // }
 
-  await updateOutputs({ runDir: run.dir, outputs });
+  // await updateOutputs({ runDir: run.dir, outputs });
 
   return { runId: run.id, outputs };
 }

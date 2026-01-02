@@ -284,7 +284,7 @@ export async function developChapter({
       wrapFile("characters.md", coreFiles["characters.md"]),
       wrapFile("outline.md", coreFiles["outline.md"]),
       wrapFile("continuity_log.md", coreFiles["continuity_log.md"]),
-      // recentChapters.length ? "\n\n---\n\n## 最近 3 章全文\n" + recentChapters.join("\n") : "",
+      recentChapters.length ? "\n\n---\n\n## 最近 3 章全文\n" + recentChapters.join("\n") : "",
       "\n\n---\n\n## 本章信息\n",
       `目标章节号：${nextChapter}\n`,
       `用户本章额外要求：\n${userGuidance ? String(userGuidance) : "(无)"}\n`,
@@ -319,14 +319,8 @@ export async function developChapter({
     log?.({ event: "result", data: { file: path.basename(briefPath), path: briefPath } });
   }
 
-  if (!useExistingBrief) {
-    const briefQcPrompt = await loadTaskPrompt({
-      engineRoot,
-      relativePath: "tasks/chapter/qc_chapter_brief.md",
-    });
-
-    const targetPreviousNumbers = [nextChapter - 1, nextChapter - 2, nextChapter - 3].filter((n) => n > 0);
-    const orderedPreviousBriefs: string[] = [];
+  const orderedPreviousBriefs: string[] = [];
+  const targetPreviousNumbers = [nextChapter - 1, nextChapter - 2, nextChapter - 3].filter((n) => n > 0);
     for (const n of targetPreviousNumbers) {
       const prev = await readChapterBrief({ novelRoot: config.novelRoot, n });
       if (!prev) continue;
@@ -334,6 +328,12 @@ export async function developChapter({
         wrapFile(`${chapterBriefFileName(n)} (chapter ${n})`, prev.replace(/\r\n/g, "\n"))
       );
     }
+
+  if (!useExistingBrief) {
+    const briefQcPrompt = await loadTaskPrompt({
+      engineRoot,
+      relativePath: "tasks/chapter/qc_chapter_brief.md",
+    });
 
     const briefQcUserContent = [
       briefQcPrompt,
@@ -408,11 +408,14 @@ export async function developChapter({
   const writeUserContent = [
     writePrompt,
     wrapFile(path.basename(briefPath), briefMarkdown),
-    wrapFile("bible.md", coreFiles["bible.md"]),
+    // wrapFile("bible.md", coreFiles["bible.md"]),
     wrapFile("characters.md", coreFiles["characters.md"]),
     // wrapFile("outline.md", coreFiles["outline.md"]),
     // wrapFile("continuity_log.md", coreFiles["continuity_log.md"]),
     // recentChapters.length ? "\n\n---\n\n## 最近 3 章全文\n" + recentChapters.join("\n") : "",
+    orderedPreviousBriefs.length
+        ? "\n\n---\n\n## 前三章的brief， 用于对齐补充前方剧情，防止冲突\n" + orderedPreviousBriefs.join("\n")
+        : "",
   ].join("");
 
   log?.({ event: "status", data: { step: "write", chapter: nextChapter, model: models.write } });
