@@ -11,6 +11,27 @@ import { tryServeStatic } from "./static.js";
 import { generateSetup } from "../workflows/generateSetup.js";
 import { developChapter } from "../workflows/developChapter.js";
 
+function parseChapterNumbers(input: unknown): Array<number | undefined> {
+  if (input == null) return [undefined];
+  if (typeof input === "number" && Number.isFinite(input)) return [input];
+  const raw = String(input).trim();
+  if (!raw) return [undefined];
+  const rangeMatch = /^(\d+)\s*-\s*(\d+)$/.exec(raw);
+  if (rangeMatch) {
+    const start = Number(rangeMatch[1]);
+    const end = Number(rangeMatch[2]);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < 1 || end < 1) return [undefined];
+    const from = Math.min(start, end);
+    const to = Math.max(start, end);
+    const list: number[] = [];
+    for (let n = from; n <= to; n += 1) list.push(n);
+    return list;
+  }
+  const num = Number(raw);
+  if (Number.isFinite(num)) return [num];
+  return [undefined];
+}
+
 export function createRouter({ config, engineRoot }: { config: AppConfig; engineRoot: string }) {
   const publicRoot = path.join(engineRoot, "public");
 
@@ -126,30 +147,39 @@ export function createRouter({ config, engineRoot }: { config: AppConfig; engine
           : null;
 
         try {
-          const chapterNumber =
-            body?.chapterNumber == null ? undefined : Number(body.chapterNumber);
+          const chapterNumbers = parseChapterNumbers(body?.chapterNumber);
           const qcPasses = body?.qcPasses == null ? undefined : Number(body.qcPasses);
           const useExistingBrief = body?.useExistingBrief === true;
-          const result = await developChapter({
-            config,
-            engineRoot,
-            userGuidance: body?.userGuidance || "",
-            chapterNumber: Number.isFinite(chapterNumber) ? chapterNumber : undefined,
-            qcPasses: Number.isFinite(qcPasses) ? qcPasses : undefined,
-            models: body?.models,
-            temperatures: body?.temperatures,
-            mainWriteMode: body?.mainWriteMode || "overwrite",
-            useExistingBrief,
-            log,
-          });
+          const results: Array<{ runId: string; outputs: Record<string, unknown> }> = [];
+
+          for (const cn of chapterNumbers) {
+            const result = await developChapter({
+              config,
+              engineRoot,
+              userGuidance: body?.userGuidance || "",
+              chapterNumber: cn,
+              qcPasses: Number.isFinite(qcPasses) ? qcPasses : undefined,
+              models: body?.models,
+              temperatures: body?.temperatures,
+              mainWriteMode: body?.mainWriteMode || "overwrite",
+              useExistingBrief,
+              log,
+            });
+            results.push(result);
+          }
+
+          const payload =
+            results.length === 1
+              ? { ...results[0] }
+              : { results, runId: results[results.length - 1]?.runId, outputs: results[results.length - 1]?.outputs };
 
           if (stream) {
-            sseSend(res, { event: "done", data: { ok: true, ...result } });
+            sseSend(res, { event: "done", data: { ok: true, ...payload } });
             res.end();
             return;
           }
 
-          return sendJson(res, 200, { ok: true, ...result });
+          return sendJson(res, 200, { ok: true, ...payload });
         } catch (error: any) {
           if (stream) {
             sseSend(res, { event: "error", data: { ok: false, error: String(error?.message || error) } });

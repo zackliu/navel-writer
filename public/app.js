@@ -406,14 +406,21 @@ ${Object.keys(outputs).length} files`,
     if ($("modelQc").value.trim()) models.qc = $("modelQc").value.trim();
     if ($("modelUpdate").value.trim()) models.update = $("modelUpdate").value.trim();
 
-    const cnRaw = $("chapterNumber").value.trim();
-    const cn = cnRaw ? Number(cnRaw) : null;
+    const cnRaw = ($("chapterNumber")?.value || "").trim();
+    const rangeMatch = /^(\d+)\s*-\s*(\d+)$/.exec(cnRaw);
+    let chapterNumber = null;
+    if (rangeMatch) {
+      chapterNumber = `${Number(rangeMatch[1])}-${Number(rangeMatch[2])}`;
+    } else {
+      const cn = cnRaw ? Number(cnRaw) : null;
+      chapterNumber = Number.isFinite(cn) ? cn : null;
+    }
     const qcRaw = ($("chapterQcPasses")?.value || "").trim();
     const qcPasses = qcRaw ? Number(qcRaw) : null;
 
     return {
       userGuidance: $("chapterGuidance").value || "",
-      chapterNumber: Number.isFinite(cn) ? cn : null,
+      chapterNumber,
       qcPasses: Number.isFinite(qcPasses) && qcPasses > 0 ? qcPasses : null,
       useExistingBrief: Boolean($("useExistingBrief")?.checked),
       models,
@@ -444,22 +451,30 @@ qcPasses=${body.qcPasses ?? "(default)"}`,
           return;
         }
         if (evt.event === "done") {
-          const outputs = evt.data?.outputs || {};
-          const links = [];
-          if (outputs.chapterBrief) links.push({ path: toRel(outputs.chapterBrief) });
-          if (outputs.chapter) links.push({ path: toRel(outputs.chapter) });
-          if (outputs.chapterQc) links.push({ path: toRel(outputs.chapterQc) });
-          if (outputs.summary) links.push({ path: toRel(outputs.summary) });
-          const main = outputs.mainUpdates || {};
-          for (const k of Object.keys(main)) {
-            if (main[k]?.path) links.push({ path: toRel(main[k].path) });
+          const runs = Array.isArray(evt.data?.results)
+            ? evt.data.results
+            : evt.data?.outputs
+            ? [{ runId: evt.data.runId, outputs: evt.data.outputs }]
+            : [];
+
+          for (const run of runs) {
+            const outputs = run.outputs || {};
+            const links = [];
+            if (outputs.chapterBrief) links.push({ path: toRel(outputs.chapterBrief) });
+            if (outputs.chapter) links.push({ path: toRel(outputs.chapter) });
+            if (outputs.chapterQc) links.push({ path: toRel(outputs.chapterQc) });
+            if (outputs.summary) links.push({ path: toRel(outputs.summary) });
+            const main = outputs.mainUpdates || {};
+            for (const k of Object.keys(main)) {
+              if (main[k]?.path) links.push({ path: toRel(main[k].path) });
+            }
+            addMsg({
+              tag: "done",
+              tagClass: "ok",
+              text: `runId=${run.runId || evt.data.runId}\nchapter=${outputs.chapterNumber}`,
+              links,
+            });
           }
-          addMsg({
-            tag: "done",
-            tagClass: "ok",
-            text: `runId=${evt.data.runId}\nchapter=${outputs.chapterNumber}`,
-            links,
-          });
           refreshFiles().catch(() => {});
           return;
         }
