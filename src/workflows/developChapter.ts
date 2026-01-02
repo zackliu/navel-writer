@@ -465,6 +465,7 @@ export async function developChapter({
       qcPrompt,
       wrapFile(path.basename(briefPath), briefMarkdown),
       wrapFile(path.basename(chapterPath), currentDraft),
+      wrapFile("outline.md", coreFiles["outline.md"]),
     ];
 
     if (qcHistory.length) {
